@@ -1,32 +1,62 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus } from "lucide-react"
+import { UserPlus, X } from "lucide-react"
+import { getSkills, type Skill } from "@/services/skills"
 
 export interface MemberFormData {
   name: string
   email: string
   role: "Sales" | "Tech" | "Admin"
+  skillIds: string[] // Array de UUIDs de skills
 }
 
 interface MemberFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (data: MemberFormData) => Promise<void> | void
+  availableSkills?: Skill[] // Skills disponibles desde la DB
 }
 
 const ROLES: Array<"Sales" | "Tech" | "Admin"> = ["Sales", "Tech", "Admin"]
 
-export default function MemberForm({ open, onOpenChange, onSubmit }: MemberFormProps) {
+export default function MemberForm({ open, onOpenChange, onSubmit, availableSkills = [] }: MemberFormProps) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"Sales" | "Tech" | "Admin" | "">("")
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingSkills, setIsLoadingSkills] = useState(false)
+  const [skills, setSkills] = useState<Skill[]>(availableSkills)
+
+  // Cargar skills desde la DB si no se proporcionaron como prop
+  useEffect(() => {
+    async function loadSkills() {
+      if (availableSkills.length > 0) {
+        setSkills(availableSkills)
+        return
+      }
+
+      if (!open) return // Solo cargar cuando el modal esté abierto
+
+      try {
+        setIsLoadingSkills(true)
+        const skillsData = await getSkills()
+        setSkills(skillsData)
+      } catch (error) {
+        console.error('Error loading skills:', error)
+      } finally {
+        setIsLoadingSkills(false)
+      }
+    }
+
+    loadSkills()
+  }, [open, availableSkills])
 
   const handleClose = () => {
     onOpenChange(false)
@@ -34,7 +64,26 @@ export default function MemberForm({ open, onOpenChange, onSubmit }: MemberFormP
     setName("")
     setEmail("")
     setRole("")
+    setSelectedSkillIds([])
     setIsSubmitting(false)
+  }
+
+  const handleAddSkill = (skillId: string) => {
+    if (!selectedSkillIds.includes(skillId)) {
+      setSelectedSkillIds([...selectedSkillIds, skillId])
+    }
+  }
+
+  const handleRemoveSkill = (skillId: string) => {
+    setSelectedSkillIds(selectedSkillIds.filter((id) => id !== skillId))
+  }
+
+  const getSelectedSkills = () => {
+    return skills.filter(skill => selectedSkillIds.includes(skill.id))
+  }
+
+  const getAvailableSkills = () => {
+    return skills.filter(skill => !selectedSkillIds.includes(skill.id))
   }
 
   const handleSubmit = async () => {
@@ -58,6 +107,7 @@ export default function MemberForm({ open, onOpenChange, onSubmit }: MemberFormP
         name: name.trim(),
         email: email.trim(),
         role: role as "Sales" | "Tech" | "Admin",
+        skillIds: selectedSkillIds,
       }
 
       await onSubmit(formData)
@@ -73,7 +123,7 @@ export default function MemberForm({ open, onOpenChange, onSubmit }: MemberFormP
     }
   }
 
-  const isFormValid = name.trim() && email.trim() && role
+  const isFormValid = name.trim() && email.trim() && role && selectedSkillIds.length > 0
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -123,6 +173,61 @@ export default function MemberForm({ open, onOpenChange, onSubmit }: MemberFormP
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Skills Selection */}
+          <div>
+            <Label>Skills</Label>
+            {isLoadingSkills ? (
+              <div className="p-3 bg-secondary rounded-lg text-sm text-muted-foreground">
+                Cargando skills...
+              </div>
+            ) : (
+              <>
+                {/* Selected Skills */}
+                {selectedSkillIds.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2 p-3 bg-secondary rounded-lg">
+                    {getSelectedSkills().map((skill) => (
+                      <div
+                        key={skill.id}
+                        className="px-3 py-1 bg-primary text-primary-foreground rounded-full text-xs font-semibold flex items-center gap-2"
+                      >
+                        {skill.name}
+                        <button
+                          onClick={() => handleRemoveSkill(skill.id)}
+                          className="hover:opacity-70"
+                          disabled={isSubmitting}
+                          type="button"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Available Skills */}
+                <div className="flex flex-wrap gap-2 p-3 bg-secondary rounded-lg max-h-40 overflow-y-auto">
+                  {getAvailableSkills().length > 0 ? (
+                    getAvailableSkills().map((skill) => (
+                      <button
+                        key={skill.id}
+                        onClick={() => handleAddSkill(skill.id)}
+                        disabled={isSubmitting}
+                        type="button"
+                        className="px-3 py-1 bg-muted text-foreground rounded-full text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {skill.name}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic w-full text-center">
+                      {selectedSkillIds.length > 0 ? "Todas las skills han sido seleccionadas" : "No hay skills disponibles"}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex gap-3 justify-end pt-4 border-t border-border">

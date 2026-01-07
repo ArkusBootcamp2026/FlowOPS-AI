@@ -120,3 +120,72 @@ export async function getTeamMembersCount(): Promise<number> {
   }
 }
 
+/**
+ * Crea un nuevo miembro del equipo
+ * @param memberData - Datos del miembro a crear
+ * @returns El miembro creado
+ */
+export async function createTeamMember(memberData: {
+  name: string
+  email: string
+  role: "Sales" | "Tech" | "Admin"
+  skillIds: string[]
+}): Promise<TeamMember> {
+  try {
+    // Llamar a la API route de Next.js
+    const response = await fetch('/api/members', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: memberData.name,
+        email: memberData.email,
+        role: memberData.role,
+        skillIds: memberData.skillIds,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Error al crear el miembro')
+    }
+
+    const result = await response.json()
+
+    // Obtener las skills del miembro recién creado
+    const { data: userSkills, error: skillsError } = await supabase
+      .from('user_skills')
+      .select(`
+        skill:skill_id (
+          id,
+          name
+        )
+      `)
+      .eq('user_id', result.id)
+
+    const skills: string[] = []
+    if (!skillsError && userSkills) {
+      userSkills.forEach((us: any) => {
+        if (us.skill) {
+          skills.push(us.skill.name)
+        }
+      })
+    }
+
+    // Retornar en el formato esperado por el frontend
+    return {
+      id: result.id,
+      name: result.full_name,
+      email: result.email,
+      role: result.role,
+      skills: skills,
+      activeOpportunities: 0,
+      completedOpportunities: 0,
+    }
+  } catch (error: any) {
+    console.error('Error in createTeamMember:', error)
+    throw error
+  }
+}
+

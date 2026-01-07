@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Plus, Menu } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { getTeamMembers, type TeamMember } from "@/services/members"
-import AddTeamMemberModal from "@/components/add-team-member-modal"
+import { getTeamMembers, createTeamMember, type TeamMember } from "@/services/members"
+import { getSkills, type Skill } from "@/services/skills"
+import MemberForm, { type MemberFormData } from "@/components/member-form"
 import { toast } from "sonner"
 import { useSidebarState } from "@/hooks/use-sidebar-state"
 
@@ -16,6 +17,22 @@ export default function TeamPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([])
+
+  // Cargar skills desde la base de datos al cargar la página
+  useEffect(() => {
+    async function loadSkills() {
+      try {
+        const skillsData = await getSkills()
+        setAvailableSkills(skillsData)
+      } catch (error) {
+        console.error('Error loading skills:', error)
+        toast.error('Failed to load skills. Please try again later.')
+      }
+    }
+
+    loadSkills()
+  }, [])
 
   // Cargar miembros del equipo desde Supabase
   useEffect(() => {
@@ -34,6 +51,28 @@ export default function TeamPage() {
 
     loadTeamMembers()
   }, [])
+
+  // Función para manejar la creación de un nuevo miembro
+  const handleCreateMember = async (formData: MemberFormData) => {
+    try {
+      const newMember = await createTeamMember({
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        skillIds: formData.skillIds,
+      })
+
+      // Actualizar la lista de miembros
+      setTeamMembers([...teamMembers, newMember])
+      toast.success('Miembro del equipo agregado exitosamente')
+      setShowAddModal(false)
+    } catch (error: any) {
+      console.error('Error creating team member:', error)
+      const errorMessage = error?.message || 'Error al crear el miembro del equipo'
+      toast.error(errorMessage)
+      throw error // Re-lanzar para que el formulario maneje el error
+    }
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -148,15 +187,12 @@ export default function TeamPage() {
         </main>
       </div>
 
-      {showAddModal && (
-        <AddTeamMemberModal
-          onClose={() => setShowAddModal(false)}
-          onAdd={(newMember) => {
-            setTeamMembers([...teamMembers, newMember])
-            setShowAddModal(false)
-          }}
-        />
-      )}
+      <MemberForm
+        open={showAddModal}
+        onOpenChange={setShowAddModal}
+        onSubmit={handleCreateMember}
+        availableSkills={availableSkills}
+      />
     </div>
   )
 }
