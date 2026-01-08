@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Header from "@/components/header"
 import Sidebar from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Search, Plus, LayoutGrid, LayoutList } from "lucide-react"
@@ -20,7 +19,7 @@ import { useSidebarState } from "@/hooks/use-sidebar-state"
 import { toast } from "sonner"
 
 export default function OpportunitiesPage() {
-  const { isOpen: sidebarOpen, toggle: toggleSidebar } = useSidebarState(true)
+  const { isOpen: sidebarOpen } = useSidebarState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<"table" | "grid">("table")
   const [sortBy, setSortBy] = useState("recent")
@@ -143,28 +142,27 @@ export default function OpportunitiesPage() {
       if (opp.assigneeId !== filters.assignedTeam) return false
     }
 
-    // Date range filter - parse createdDate string (format: "Jan 15, 2024")
-    // Note: createdDate is formatted as locale string, so we parse it carefully
+    // Date range filter - use created_at timestamp directly from database
     if (filters.startDate || filters.endDate) {
       try {
-        // Parse the formatted date string (e.g., "Jan 15, 2024")
-        const oppDate = new Date(opp.createdDate)
+        // Use the raw created_at timestamp from database
+        const oppDate = new Date(opp.created_at)
         if (isNaN(oppDate.getTime())) {
           // If parsing fails, include the opportunity to avoid filtering out valid data
           return true
         }
         
-        // Normalize to start of day for comparison
-        oppDate.setHours(0, 0, 0, 0)
-        
         if (filters.startDate) {
           const startDate = new Date(filters.startDate)
           startDate.setHours(0, 0, 0, 0)
+          // Filter for created_at >= startDate
           if (oppDate < startDate) return false
         }
+        
         if (filters.endDate) {
           const endDate = new Date(filters.endDate)
           endDate.setHours(23, 59, 59, 999)
+          // Filter for created_at <= endDate (includes full day)
           if (oppDate > endDate) return false
         }
       } catch (error) {
@@ -177,7 +175,7 @@ export default function OpportunitiesPage() {
   }).sort((a, b) => {
     switch (sortBy) {
       case "oldest":
-        return new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime()
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       case "urgency-high":
         return a.urgency === "high" ? -1 : a.urgency === "medium" ? 1 : 2
       case "urgency-low":
@@ -186,7 +184,7 @@ export default function OpportunitiesPage() {
         return a.status.localeCompare(b.status)
       case "recent":
       default:
-        return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     }
   })
 
@@ -194,29 +192,31 @@ export default function OpportunitiesPage() {
     <div className="flex h-screen bg-background text-foreground">
       <Sidebar open={sidebarOpen} />
       <div className="flex flex-col flex-1">
-        <Header onSidebarToggle={toggleSidebar} />
         <main className="flex-1 overflow-auto">
-          <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">Opportunities History</h1>
+          <div className="border-b border-border bg-card px-6 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <h1 className="text-2xl font-bold text-foreground">Opportunities History</h1>
+              <div className="flex items-center gap-4 flex-1 max-w-md">
+                <div className="flex items-center gap-2 flex-1 relative">
+                  <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="search"
+                    placeholder="Search opportunities..."
+                    className="pl-10 border-0 bg-secondary placeholder:text-muted-foreground"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-              <Button className="gap-2" onClick={() => setShowNewOpportunityModal(true)}>
+              <Button className="gap-2" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
                 <Plus className="h-4 w-4" />
                 New Opportunity
               </Button>
             </div>
+          </div>
 
+          <div className="p-6 space-y-6">
             <div className="flex gap-4 items-end">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search opportunities..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
               <div className="flex gap-2">
                 <Button
                   variant={viewMode === "table" ? "default" : "outline"}
@@ -387,30 +387,30 @@ export default function OpportunitiesPage() {
                 ) : (
                   <div className="bg-card border border-border rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full">
+                      <table className="w-full table-fixed">
                         <thead className="bg-muted border-b border-border">
                           <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '15%' }}>Client</th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '15%' }}>Company</th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Date</th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Status</th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Urgency</th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '15%' }}>Team Member</th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Skill</th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground">AI Summary</th>
+                            <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Client</th>
+                            <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Company</th>
+                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '8%' }}>Date</th>
+                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '20%' }}>AI Summary</th>
+                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Urgency</th>
+                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '15%' }}>Team Member</th>
+                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Skill</th>
+                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Status</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {[...Array(5)].map((_, i) => (
                             <tr key={i}>
-                              <td className="px-4 py-4"><Skeleton className="h-4 w-20" /></td>
-                              <td className="px-4 py-4"><Skeleton className="h-4 w-24" /></td>
-                              <td className="px-4 py-4"><Skeleton className="h-4 w-20" /></td>
-                              <td className="px-4 py-4"><Skeleton className="h-6 w-16 rounded-full" /></td>
-                              <td className="px-4 py-4"><Skeleton className="h-6 w-16 rounded-full" /></td>
-                              <td className="px-4 py-4"><Skeleton className="h-4 w-24" /></td>
-                              <td className="px-4 py-4"><Skeleton className="h-4 w-20" /></td>
-                              <td className="px-4 py-4"><Skeleton className="h-4 w-48" /></td>
+                              <td className="pl-4 pr-2 py-2"><Skeleton className="h-4 w-20" /></td>
+                              <td className="pl-4 pr-2 py-2"><Skeleton className="h-4 w-24" /></td>
+                              <td className="px-4 py-2"><Skeleton className="h-4 w-20" /></td>
+                              <td className="px-4 py-2"><Skeleton className="h-4 w-32" /></td>
+                              <td className="px-4 py-2"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                              <td className="px-4 py-2"><Skeleton className="h-4 w-24" /></td>
+                              <td className="px-4 py-2"><Skeleton className="h-4 w-20" /></td>
+                              <td className="px-4 py-2"><Skeleton className="h-5 w-16 rounded-full" /></td>
                             </tr>
                           ))}
                         </tbody>
@@ -448,17 +448,17 @@ export default function OpportunitiesPage() {
             ) : (
               <div className="bg-card border border-border rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full table-fixed">
                     <thead className="bg-muted border-b border-border">
                       <tr>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '15%' }}>Client</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '15%' }}>Company</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Date</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Status</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Urgency</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '15%' }}>Team Member</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground" style={{ width: '10%' }}>Skill</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground">AI Summary</th>
+                        <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Client</th>
+                        <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Company</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '8%' }}>Date</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '20%' }}>AI Summary</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Urgency</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '15%' }}>Team Member</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Skill</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -470,33 +470,35 @@ export default function OpportunitiesPage() {
                             onClick={() => setSelectedOpportunity(opp)}
                             className="hover:bg-muted/50 cursor-pointer transition-colors"
                           >
-                            <td className="px-4 py-4 font-medium text-foreground text-sm">{opp.clientName}</td>
-                            <td className="px-4 py-4 text-card-foreground text-sm">{opp.company}</td>
-                            <td className="px-4 py-4 text-muted-foreground text-sm">{opp.createdDate}</td>
-                            <td className="px-4 py-4">
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(opp.status)}`}>
-                                {opp.status.charAt(0).toUpperCase() + opp.status.slice(1)}
-                              </span>
+                            <td className="pl-4 pr-2 py-2 font-medium text-foreground text-sm">
+                              <p className="truncate">{opp.clientName}</p>
                             </td>
-                            <td className="px-4 py-4">
+                            <td className="pl-4 pr-2 py-2 text-card-foreground text-sm">
+                              <p className="truncate">{opp.company}</p>
+                            </td>
+                            <td className="px-4 py-2 text-muted-foreground text-sm">{opp.createdDate}</td>
+                            <td className="px-4 py-2 text-sm text-muted-foreground">
+                              <p className="truncate">{opp.aiSummary || opp.summary || 'No summary available'}</p>
+                            </td>
+                            <td className="px-4 py-2">
                               <span
-                                className={`px-3 py-1 rounded-full text-sm font-medium ${getUrgencyColor(opp.urgency)}`}
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${getUrgencyColor(opp.urgency)}`}
                               >
                                 {opp.urgency.charAt(0).toUpperCase() + opp.urgency.slice(1)}
                               </span>
                             </td>
-                            <td className="px-4 py-4 text-sm text-foreground">
+                            <td className="px-4 py-2 text-sm text-foreground">
                               {opp.assignee ? (
                                 <span className="font-medium">{opp.assignee}</span>
                               ) : (
-                                <span className="text-muted-foreground italic">Unassigned</span>
+                                <span className="text-muted-foreground italic text-xs">Unassigned</span>
                               )}
                             </td>
-                            <td className="px-4 py-4">
-                              <div className="flex flex-wrap gap-1.5">
+                            <td className="px-4 py-2">
+                              <div className="flex flex-wrap gap-1">
                                 {skills.length > 0 ? (
                                   skills.map((skill) => (
-                                    <Badge key={skill} variant="secondary" className="text-xs">
+                                    <Badge key={skill} variant="secondary" className="text-xs px-1.5 py-0">
                                       {skill}
                                     </Badge>
                                   ))
@@ -505,8 +507,10 @@ export default function OpportunitiesPage() {
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-4 text-sm text-muted-foreground">
-                              <p className="line-clamp-1 truncate">{opp.aiSummary || opp.summary || 'No summary available'}</p>
+                            <td className="px-4 py-2">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(opp.status)}`}>
+                                {opp.status.charAt(0).toUpperCase() + opp.status.slice(1)}
+                              </span>
                             </td>
                           </tr>
                         )

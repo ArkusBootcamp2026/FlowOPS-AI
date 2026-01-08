@@ -35,6 +35,7 @@ export interface Opportunity {
   urgency: "high" | "medium" | "low"
   aiSummary: string
   createdDate: string
+  created_at: string // ISO timestamp from database
 }
 
 /**
@@ -213,7 +214,8 @@ export async function getOpportunities(): Promise<Opportunity[]> {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
-        })
+        }),
+        created_at: opp.created_at // Include raw timestamp for filtering
       }
     })
 
@@ -322,7 +324,8 @@ export async function updateOpportunityStatus(
         year: 'numeric',
         month: 'short',
         day: 'numeric'
-      })
+      }),
+      created_at: data.created_at
     }
   } catch (error) {
     console.error('Error in updateOpportunityStatus:', error)
@@ -471,7 +474,8 @@ export async function updateOpportunityAssignment(
         year: 'numeric',
         month: 'short',
         day: 'numeric'
-      })
+      }),
+      created_at: data.created_at
     }
   } catch (error: any) {
     console.error('Error completo:', error)
@@ -726,7 +730,8 @@ export async function createOpportunity(
         year: 'numeric',
         month: 'short',
         day: 'numeric'
-      })
+      }),
+      created_at: data.created_at
     }
   } catch (error: any) {
     console.error('Error completo:', error)
@@ -758,13 +763,35 @@ export async function getActiveOpportunitiesCount(): Promise<number> {
 
 /**
  * Gets the count of opportunities with 'new' status (pending action)
+ * @param startDate - Optional start date filter (ISO string or Date)
+ * @param endDate - Optional end date filter (ISO string or Date)
  */
-export async function getPendingActionCount(): Promise<number> {
+export async function getPendingActionCount(
+  startDate?: string | Date,
+  endDate?: string | Date
+): Promise<number> {
   try {
-    const { count, error } = await supabase
+    let query = supabase
       .from("Opportunities")
       .select('*', { count: 'exact', head: true })
       .eq('status', 'new')
+
+    // Apply date filters if provided
+    if (startDate) {
+      const start = typeof startDate === 'string' ? startDate : startDate.toISOString()
+      const startDateObj = new Date(start)
+      startDateObj.setHours(0, 0, 0, 0)
+      query = query.gte('created_at', startDateObj.toISOString())
+    }
+
+    if (endDate) {
+      const end = typeof endDate === 'string' ? endDate : endDate.toISOString()
+      const endDateObj = new Date(end)
+      endDateObj.setHours(23, 59, 59, 999)
+      query = query.lte('created_at', endDateObj.toISOString())
+    }
+
+    const { count, error } = await query
 
     if (error) {
       console.error('Error fetching pending action count:', error)

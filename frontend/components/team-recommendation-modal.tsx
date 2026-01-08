@@ -71,8 +71,8 @@ export default function TeamRecommendationModal({
   const shouldShowAlternatives = requiredSkills.length === 0 || requiredSkills.every(skill => !skill || skill === '')
   const allOtherMembers = shouldShowAlternatives 
     ? teamMembers.filter((member) =>
-        !requiredSkills.some(skill => member.skills.includes(skill))
-      )
+    !requiredSkills.some(skill => member.skills.includes(skill))
+  )
     : []
 
   return (
@@ -93,12 +93,12 @@ export default function TeamRecommendationModal({
               <div className="flex items-center gap-2 flex-wrap">
                 {requiredSkills.length > 0 ? (
                   <>
-                    {requiredSkills.map((skill, idx) => (
-                      <Badge key={idx} className="text-base">{skill}</Badge>
-                    ))}
-                    <span className="text-sm text-muted-foreground">
-                      {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""} with {requiredSkills.length > 1 ? 'these skills' : 'this skill'}
-                    </span>
+                {requiredSkills.map((skill, idx) => (
+                  <Badge key={idx} className="text-base">{skill}</Badge>
+                ))}
+                <span className="text-sm text-muted-foreground">
+                  {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""} with {requiredSkills.length > 1 ? 'these skills' : 'this skill'}
+                </span>
                   </>
                 ) : (
                   <span className="text-sm text-muted-foreground italic">No specific skills required</span>

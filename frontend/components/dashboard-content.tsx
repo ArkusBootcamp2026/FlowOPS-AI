@@ -4,12 +4,13 @@ import KanbanBoard from "@/components/kanban-board"
 import StatsCard from "@/components/stats-card"
 import FilterBar from "@/components/filter-bar"
 import NewOpportunityModal from "@/components/new-opportunity-modal"
-import { Clock, Code, Users, Plus, Menu } from "lucide-react"
+import { Clock, Code, Users, Plus, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { getPendingActionCount, getTopNeededSkill } from "@/services/opportunities"
 import { getTeamAvailabilityPercentage } from "@/services/members"
 
-export default function DashboardContent({ onSidebarToggle }: { onSidebarToggle: () => void }) {
+export default function DashboardContent() {
   const [showNewOpportunity, setShowNewOpportunity] = useState(false)
   const [filters, setFilters] = useState({
     urgency: "",
@@ -23,61 +24,85 @@ export default function DashboardContent({ onSidebarToggle }: { onSidebarToggle:
   ])
 
   // Load real statistics from Supabase
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const [pendingCount, topSkill, availability] = await Promise.all([
-          getPendingActionCount(),
-          getTopNeededSkill(),
-          getTeamAvailabilityPercentage(),
-        ])
+  const loadStats = async () => {
+    try {
+      const [pendingCount, topSkill, availability] = await Promise.all([
+        getPendingActionCount(),
+        getTopNeededSkill(),
+        getTeamAvailabilityPercentage(),
+      ])
 
-        setStats([
-          { label: "Pending Action", value: String(pendingCount), icon: Clock },
-          { label: "Top Needed Skill", value: topSkill, icon: Code },
-          { label: "Team Availability", value: `${availability}%`, icon: Users },
-        ])
-      } catch (error) {
-        console.error('Error loading stats:', error)
-        // Keep default values in case of error
-      }
+      setStats([
+        { label: "Pending Action", value: String(pendingCount), icon: Clock },
+        { label: "Top Needed Skill", value: topSkill, icon: Code },
+        { label: "Team Availability", value: `${availability}%`, icon: Users },
+      ])
+    } catch (error) {
+      console.error('Error loading stats:', error)
+      // Keep default values in case of error
     }
+  }
 
+  // Load stats on mount
+  useEffect(() => {
     loadStats()
   }, [])
 
+  // Listen for opportunity status changes to refresh stats
+  useEffect(() => {
+    const handleOpportunityStatusChanged = () => {
+      // Refresh stats when opportunity status changes to/from 'new'
+      loadStats()
+    }
+
+    // Listen for custom events from KanbanBoard
+    window.addEventListener('opportunityStatusChanged', handleOpportunityStatusChanged)
+    window.addEventListener('addOpportunity', handleOpportunityStatusChanged)
+
+    return () => {
+      window.removeEventListener('opportunityStatusChanged', handleOpportunityStatusChanged)
+      window.removeEventListener('addOpportunity', handleOpportunityStatusChanged)
+    }
+  }, [])
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onSidebarToggle} className="text-foreground hover:bg-secondary">
-            <Menu className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground text-xs">Welcome back! Here's your lead management overview.</p>
+    <div className="space-y-4">
+      <div className="border-b border-border bg-card px-6 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <div className="flex items-center gap-4 flex-1 max-w-md">
+            <div className="flex items-center gap-2 flex-1 relative">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                type="search"
+                placeholder="Search opportunities..."
+                className="pl-10 border-0 bg-secondary placeholder:text-muted-foreground"
+              />
+            </div>
           </div>
+          <Button onClick={() => setShowNewOpportunity(true)} className="gap-2" size="sm">
+            <Plus className="h-4 w-4" />
+            New Opportunity
+          </Button>
         </div>
-        <Button onClick={() => setShowNewOpportunity(true)} className="gap-2" size="sm">
-          <Plus className="h-4 w-4" />
-          New Opportunity
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {stats.map((stat) => (
-          <StatsCard key={stat.label} {...stat} />
-        ))}
+      <div className="p-4 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {stats.map((stat) => (
+            <StatsCard key={stat.label} {...stat} />
+          ))}
+        </div>
+
+        <FilterBar filters={filters} setFilters={setFilters} hideSortBy />
+
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">Opportunities Pipeline</h2>
+          <KanbanBoard filters={filters} />
+        </div>
+
+        <NewOpportunityModal open={showNewOpportunity} onOpenChange={setShowNewOpportunity} />
       </div>
-
-      <FilterBar filters={filters} setFilters={setFilters} hideSortBy />
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-foreground">Opportunities Pipeline</h2>
-        <KanbanBoard filters={filters} />
-      </div>
-
-      <NewOpportunityModal open={showNewOpportunity} onOpenChange={setShowNewOpportunity} />
     </div>
   )
 }

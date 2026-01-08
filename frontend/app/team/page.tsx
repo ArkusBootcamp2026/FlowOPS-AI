@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import Sidebar from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
-import { Plus, Menu } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Plus, Search } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { getTeamMembers, createTeamMember, type TeamMember } from "@/services/members"
@@ -13,7 +14,7 @@ import { toast } from "sonner"
 import { useSidebarState } from "@/hooks/use-sidebar-state"
 
 export default function TeamPage() {
-  const { isOpen: sidebarOpen, toggle: toggleSidebar } = useSidebarState(true)
+  const { isOpen: sidebarOpen } = useSidebarState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -79,27 +80,27 @@ export default function TeamPage() {
       <Sidebar open={sidebarOpen} />
       <div className="flex flex-col flex-1">
         <main className="flex-1 overflow-auto">
-          <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleSidebar}
-                  className="text-foreground hover:bg-secondary"
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">Team Members</h1>
-                  <p className="text-muted-foreground text-sm">Manage your team and their skills</p>
+          <div className="border-b border-border bg-card px-6 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <h1 className="text-2xl font-bold text-foreground">Team Members</h1>
+              <div className="flex items-center gap-4 flex-1 max-w-md">
+                <div className="flex items-center gap-2 flex-1 relative">
+                  <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="search"
+                    placeholder="Search team members..."
+                    className="pl-10 border-0 bg-secondary placeholder:text-muted-foreground"
+                  />
                 </div>
               </div>
-              <Button onClick={() => setShowAddModal(true)} className="gap-2">
+              <Button onClick={() => setShowAddModal(true)} className="gap-2" size="sm">
                 <Plus className="h-4 w-4" />
                 Add Team Member
               </Button>
             </div>
+          </div>
+
+          <div className="p-6 space-y-6">
 
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -192,7 +193,7 @@ export default function TeamPage() {
         onOpenChange={setShowAddModal}
         onSubmit={handleCreateMember}
         availableSkills={availableSkills}
-      />
+        />
     </div>
   )
 }

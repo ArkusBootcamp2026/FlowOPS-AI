@@ -134,8 +134,8 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
           setSkillId('none')
         }
 
-        setShowResults(true)
-        setIsProcessing(false)
+      setShowResults(true)
+      setIsProcessing(false)
       } catch (error: any) {
         console.error('Error processing email with AI:', error)
         toast.error(`Error processing email: ${error.message || 'Unknown error'}`)

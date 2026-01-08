@@ -53,6 +53,13 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
       try {
         const data = await getOpportunities()
         setOpportunities(data)
+        
+        // Emit event to trigger stats refresh when new opportunity is added
+        if (newOpportunity.status === 'new') {
+          window.dispatchEvent(new CustomEvent('opportunityStatusChanged', {
+            detail: { opportunityId: newOpportunity.id, previousStatus: null, newStatus: 'new' }
+          }))
+        }
       } catch (error) {
         console.error('Error refreshing opportunities:', error)
       }
@@ -104,6 +111,10 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
 
   // Centralized function to update the status of an opportunity
   const handleUpdateStatus = async (id: string, newStatus: "new" | "assigned" | "done" | "cancelled" | "archived") => {
+    // Get the previous status to detect if it changed to/from 'new'
+    const previousOpportunity = opportunities.find(opp => opp.id === id)
+    const previousStatus = previousOpportunity?.status
+
     // Optimistic update: update UI immediately
     const previousOpportunities = [...opportunities]
     setOpportunities((prev) =>
@@ -121,6 +132,13 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
           prev.map((opp) => (opp.id === id ? updatedOpportunity : opp))
         )
         toast.success(`Opportunity moved to ${newStatus}`)
+        
+        // Emit event if status changed to/from 'new' to trigger stats refresh
+        if (previousStatus === 'new' || newStatus === 'new') {
+          window.dispatchEvent(new CustomEvent('opportunityStatusChanged', {
+            detail: { opportunityId: id, previousStatus, newStatus }
+          }))
+        }
       } else {
         throw new Error('Failed to update opportunity')
       }
@@ -145,6 +163,9 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
 
   const handleAssignTeamMember = async (memberId: string) => {
     if (!opportunityToAssign) return
+
+    // Get the previous status to detect if it changed to/from 'new'
+    const previousStatus = opportunityToAssign.status
 
     // Optimistic update: update UI immediately with expected changes
     const previousOpportunities = [...opportunities]
@@ -171,6 +192,13 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
         toast.success(`Opportunity assigned successfully`)
         setRecommendationModalOpen(false)
         setOpportunityToAssign(null)
+        
+        // Emit event if status changed to/from 'new' to trigger stats refresh
+        if (previousStatus === 'new' || updatedOpportunity.status === 'new') {
+          window.dispatchEvent(new CustomEvent('opportunityStatusChanged', {
+            detail: { opportunityId: opportunityToAssign.id, previousStatus, newStatus: updatedOpportunity.status }
+          }))
+        }
       } else {
         throw new Error('Failed to update opportunity assignment')
       }
