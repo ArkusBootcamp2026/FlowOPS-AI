@@ -1,16 +1,17 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { X } from "lucide-react"
-import { SKILLS } from "@/lib/skills"
-import { TEAM_MEMBERS } from "@/lib/team-data"
+import { getSkills, type Skill } from "@/services/skills"
+import { getTeamMembers, type TeamMember } from "@/services/members"
 
 interface FilterBarProps {
   filters: {
     urgency: string
-    skill: string
-    assignedTeam: string
+    skill: string // Will store skill ID
+    assignedTeam: string // Will store member ID
   }
   sortBy?: string
   setFilters: (filters: any) => void
@@ -19,9 +20,44 @@ interface FilterBarProps {
 }
 
 export default function FilterBar({ filters, sortBy = "recent", setFilters, setSortBy, hideSortBy = false }: FilterBarProps) {
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [isLoadingSkills, setIsLoadingSkills] = useState(true)
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true)
+
+  // Load skills from database
+  useEffect(() => {
+    async function loadSkills() {
+      try {
+        setIsLoadingSkills(true)
+        const skillsData = await getSkills()
+        setSkills(skillsData)
+      } catch (error) {
+        console.error('Error loading skills:', error)
+      } finally {
+        setIsLoadingSkills(false)
+      }
+    }
+    loadSkills()
+  }, [])
+
+  // Load team members from database
+  useEffect(() => {
+    async function loadTeamMembers() {
+      try {
+        setIsLoadingMembers(true)
+        const membersData = await getTeamMembers()
+        setTeamMembers(membersData)
+      } catch (error) {
+        console.error('Error loading team members:', error)
+      } finally {
+        setIsLoadingMembers(false)
+      }
+    }
+    loadTeamMembers()
+  }, [])
+
   const urgencyOptions = ["High", "Medium", "Low"]
-  const skillOptions = SKILLS
-  const teamOptions = TEAM_MEMBERS.map((member) => member.name)
   const sortOptions = [
     { value: "oldest", label: "Oldest First" },
     { value: "urgency-high", label: "Highest Urgency" },
@@ -57,15 +93,19 @@ export default function FilterBar({ filters, sortBy = "recent", setFilters, setS
             </SelectContent>
           </Select>
 
-          <Select value={filters.skill || "all"} onValueChange={(v) => setFilters({ ...filters, skill: v })}>
+          <Select 
+            value={filters.skill || "all"} 
+            onValueChange={(v) => setFilters({ ...filters, skill: v === "all" ? "" : v })}
+            disabled={isLoadingSkills}
+          >
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Required Skill" />
+              <SelectValue placeholder={isLoadingSkills ? "Loading..." : "Required Skill"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Skills</SelectItem>
-              {skillOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
+              {skills.map((skill) => (
+                <SelectItem key={skill.id} value={skill.id}>
+                  {skill.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -73,16 +113,17 @@ export default function FilterBar({ filters, sortBy = "recent", setFilters, setS
 
           <Select
             value={filters.assignedTeam || "all"}
-            onValueChange={(v) => setFilters({ ...filters, assignedTeam: v })}
+            onValueChange={(v) => setFilters({ ...filters, assignedTeam: v === "all" ? "" : v })}
+            disabled={isLoadingMembers}
           >
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Team Member" />
+              <SelectValue placeholder={isLoadingMembers ? "Loading..." : "Team Member"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Team Members</SelectItem>
-              {teamOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
+              {teamMembers.map((member) => (
+                <SelectItem key={member.id} value={member.id}>
+                  {member.name}
                 </SelectItem>
               ))}
             </SelectContent>

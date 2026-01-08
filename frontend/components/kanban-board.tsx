@@ -74,18 +74,19 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
   }, [])
 
   const filteredOpportunities = opportunities.filter((opp) => {
-    // Filtrar por urgencia: si el filtro es "all" o está vacío, mostrar todas; si no, filtrar por la urgencia específica
+    // Filter by urgency: if filter is "all" or empty, show all; otherwise, filter by specific urgency
     if (filters?.urgency && filters.urgency !== "" && filters.urgency !== "all") {
       if (opp.urgency !== filters.urgency.toLowerCase()) return false
     }
 
+    // Filter by skill ID (from database)
     if (filters?.skill && filters.skill !== "" && filters.skill !== "all") {
-      const skills = Array.isArray(opp.requiredSkill) ? opp.requiredSkill : [opp.requiredSkill]
-      if (!skills.includes(filters.skill)) return false
+      if (opp.requiredSkillId !== filters.skill) return false
     }
 
+    // Filter by assigned team member ID (from database)
     if (filters?.assignedTeam && filters.assignedTeam !== "" && filters.assignedTeam !== "all") {
-      if (opp.assignee !== filters.assignedTeam) return false
+      if (opp.assigneeId !== filters.assignedTeam) return false
     }
     return true
   })

@@ -86,12 +86,15 @@ export default function OpportunitiesPage() {
       if (opp.urgency !== filters.urgency.toLowerCase()) return false
     }
 
-    if (filters.skill && filters.skill !== "") {
-      const skills = Array.isArray(opp.requiredSkill) ? opp.requiredSkill : [opp.requiredSkill]
-      if (!skills.includes(filters.skill)) return false
+    // Filter by skill ID (from database)
+    if (filters.skill && filters.skill !== "" && filters.skill !== "all") {
+      if (opp.requiredSkillId !== filters.skill) return false
     }
 
-    if (filters.assignedTeam && filters.assignedTeam !== "" && opp.assignee !== filters.assignedTeam) return false
+    // Filter by assigned team member ID (from database)
+    if (filters.assignedTeam && filters.assignedTeam !== "" && filters.assignedTeam !== "all") {
+      if (opp.assigneeId !== filters.assignedTeam) return false
+    }
     return true
   }).sort((a, b) => {
     switch (sortBy) {

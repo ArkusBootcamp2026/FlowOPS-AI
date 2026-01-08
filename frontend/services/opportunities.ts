@@ -28,7 +28,9 @@ export interface Opportunity {
   company: string
   summary: string
   requiredSkill: string | string[]
+  requiredSkillId: string | null // ID of the required skill
   assignee: string
+  assigneeId: string | null // ID of the assigned user
   status: "new" | "assigned" | "done"
   urgency: "high" | "medium" | "low"
   aiSummary: string
@@ -201,7 +203,9 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         company: client?.company || 'Unknown Company',
         summary: opp.original_message || '',
         requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+        requiredSkillId: opp.required_skill_id || null,
         assignee: assignedUser?.full_name || '',
+        assigneeId: opp.assigned_user_id || null,
         status: status,
         urgency: (opp.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
         aiSummary: opp.ai_summary || '',
@@ -308,7 +312,9 @@ export async function updateOpportunityStatus(
       company: client?.company || 'Unknown Company',
       summary: data.original_message || '',
       requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+      requiredSkillId: data.required_skill_id || null,
       assignee: assignedUser?.full_name || '',
+      assigneeId: data.assigned_user_id || null,
       status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done",
       urgency: (data.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
       aiSummary: data.ai_summary || '',
@@ -455,7 +461,9 @@ export async function updateOpportunityAssignment(
       company: client?.company || 'Unknown Company',
       summary: data.original_message || '',
       requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+      requiredSkillId: data.required_skill_id || null,
       assignee: assignedUser?.full_name || '',
+      assigneeId: data.assigned_user_id || null,
       status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done",
       urgency: (data.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
       aiSummary: data.ai_summary || '',
@@ -598,7 +606,9 @@ export async function updateOpportunityDetails(
       company: client?.company || 'Unknown Company',
       summary: data.original_message || '',
       requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+      requiredSkillId: data.required_skill_id || null,
       assignee: assignedUser?.full_name || '',
+      assigneeId: data.assigned_user_id || null,
       status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done",
       urgency: (data.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
       aiSummary: data.ai_summary || '',
@@ -706,7 +716,9 @@ export async function createOpportunity(
       company: client?.company || 'Unknown Company',
       summary: data.original_message || '',
       requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+      requiredSkillId: data.required_skill_id || null,
       assignee: assignedUser?.full_name || '',
+      assigneeId: data.assigned_user_id || null,
       status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done",
       urgency: (data.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
       aiSummary: data.ai_summary || '',
