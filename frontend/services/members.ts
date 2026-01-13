@@ -182,23 +182,72 @@ export async function createTeamMember(memberData: {
   skillIds: string[]
 }): Promise<TeamMember> {
   try {
+    // Validate and trim data before sending
+    const trimmedName = memberData.name?.trim() || ''
+    const trimmedEmail = memberData.email?.trim() || ''
+    
+    // Validate required fields after trimming
+    if (!trimmedName) {
+      throw new Error('Name is required and cannot be empty')
+    }
+    
+    if (!trimmedEmail) {
+      throw new Error('Email is required and cannot be empty')
+    }
+    
+    if (!memberData.role) {
+      throw new Error('Role is required')
+    }
+
+    // Validate that skillIds is an array
+    if (!Array.isArray(memberData.skillIds)) {
+      throw new Error('skillIds must be an array')
+    }
+
     // Call the Next.js API route
-    const response = await fetch('/api/members', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: memberData.name,
-        email: memberData.email,
-        role: memberData.role,
-        skillIds: memberData.skillIds,
-      }),
-    })
+    let response: Response
+    try {
+      response = await fetch('/api/members', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: trimmedName,
+          email: trimmedEmail,
+          role: memberData.role,
+          skillIds: memberData.skillIds || [],
+        }),
+      })
+    } catch (fetchError: any) {
+      // Handle network errors (TypeError: fetch failed)
+      console.error('Network error in createTeamMember:', fetchError)
+      throw new Error(`Failed to connect to server: ${fetchError.message || 'Network error'}`)
+    }
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Error creating member')
+      // Check if response has JSON content-type before parsing
+      const contentType = response.headers.get('content-type')
+      let errorMessage = `Server error: ${response.status} ${response.statusText}`
+      
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (jsonError) {
+          // If JSON parsing fails, use status text
+          console.error('Error parsing error response as JSON:', jsonError)
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+      }
+      
+      throw new Error(errorMessage)
+    }
+
+    // Verify response is JSON before parsing
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Expected JSON response but received: ${contentType || 'unknown content type'}`)
     }
 
     const result = await response.json()

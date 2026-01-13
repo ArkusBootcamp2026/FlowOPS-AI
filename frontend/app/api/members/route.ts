@@ -7,10 +7,29 @@ export async function POST(request: NextRequest) {
     
     const { name, email, role, skillIds } = body
 
-    // Validate required fields
-    if (!name || !email || !role) {
+    // Trim and validate required fields
+    const trimmedName = name?.trim() || ''
+    const trimmedEmail = email?.trim() || ''
+    const trimmedRole = role?.trim() || ''
+
+    // Validate required fields after trimming
+    if (!trimmedName) {
       return NextResponse.json(
-        { error: 'name, email, and role are required fields' },
+        { error: 'name is required and cannot be empty' },
+        { status: 400 }
+      )
+    }
+
+    if (!trimmedEmail) {
+      return NextResponse.json(
+        { error: 'email is required and cannot be empty' },
+        { status: 400 }
+      )
+    }
+
+    if (!trimmedRole) {
+      return NextResponse.json(
+        { error: 'role is required and cannot be empty' },
         { status: 400 }
       )
     }
@@ -23,11 +42,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create the member using the backend controller
+    // Create the member using the backend controller with trimmed values
     const result = await createMember({
-      fullName: name,
-      email: email,
-      role: role,
+      fullName: trimmedName,
+      email: trimmedEmail,
+      role: trimmedRole,
       skillIds: skillIds || [],
     })
 
