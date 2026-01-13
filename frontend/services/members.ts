@@ -288,3 +288,131 @@ export async function createTeamMember(memberData: {
   }
 }
 
+/**
+ * Updates an existing team member
+ * @param memberId - ID of the member to update
+ * @param memberData - Updated member data
+ * @returns The updated member
+ */
+export async function updateTeamMember(
+  memberId: string,
+  memberData: {
+    name: string
+    email: string
+    role: "Sales" | "Tech" | "Admin"
+    skillIds: string[]
+  }
+): Promise<TeamMember> {
+  try {
+    // Validate and trim data before sending
+    const trimmedName = memberData.name?.trim() || ''
+    const trimmedEmail = memberData.email?.trim() || ''
+    
+    // Validate required fields after trimming
+    if (!trimmedName) {
+      throw new Error('Name is required and cannot be empty')
+    }
+    
+    if (!trimmedEmail) {
+      throw new Error('Email is required and cannot be empty')
+    }
+    
+    if (!memberData.role) {
+      throw new Error('Role is required')
+    }
+
+    // Validate that skillIds is an array
+    if (!Array.isArray(memberData.skillIds)) {
+      throw new Error('skillIds must be an array')
+    }
+
+    // Validate memberId
+    if (!memberId || memberId.trim() === '') {
+      throw new Error('Member ID is required')
+    }
+
+    // Call the Next.js API route
+    let response: Response
+    try {
+      response = await fetch('/api/members', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: memberId,
+          name: trimmedName,
+          email: trimmedEmail,
+          role: memberData.role,
+          skillIds: memberData.skillIds || [],
+        }),
+      })
+    } catch (fetchError: any) {
+      // Handle network errors (TypeError: fetch failed)
+      console.error('Network error in updateTeamMember:', fetchError)
+      throw new Error(`Failed to connect to server: ${fetchError.message || 'Network error'}`)
+    }
+
+    if (!response.ok) {
+      // Check if response has JSON content-type before parsing
+      const contentType = response.headers.get('content-type')
+      let errorMessage = `Server error: ${response.status} ${response.statusText}`
+      
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (jsonError) {
+          // If JSON parsing fails, use status text
+          console.error('Error parsing error response as JSON:', jsonError)
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+      }
+      
+      throw new Error(errorMessage)
+    }
+
+    // Verify response is JSON before parsing
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Expected JSON response but received: ${contentType || 'unknown content type'}`)
+    }
+
+    const result = await response.json()
+
+    // Get skills for the updated member
+    const { data: userSkills, error: skillsError } = await supabase
+      .from('user_skills')
+      .select(`
+        skill:skill_id (
+          id,
+          name
+        )
+      `)
+      .eq('user_id', result.id)
+
+    const skills: string[] = []
+    if (!skillsError && userSkills) {
+      userSkills.forEach((us: any) => {
+        if (us.skill) {
+          skills.push(us.skill.name)
+        }
+      })
+    }
+
+    // Return in the format expected by the frontend
+    return {
+      id: result.id,
+      name: result.full_name,
+      email: result.email,
+      role: result.role,
+      skills: skills,
+      activeOpportunities: 0, // These will be recalculated when the list is refreshed
+      completedOpportunities: 0,
+    }
+  } catch (error: any) {
+    console.error('Error in updateTeamMember:', error)
+    throw error
+  }
+}
+

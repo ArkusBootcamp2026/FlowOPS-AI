@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Plus, Search } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { getTeamMembers, createTeamMember, type TeamMember } from "@/services/members"
+import { getTeamMembers, createTeamMember, updateTeamMember, type TeamMember } from "@/services/members"
 import { getSkills, type Skill } from "@/services/skills"
 import MemberForm, { type MemberFormData } from "@/components/member-form"
 import { toast } from "sonner"
@@ -16,6 +16,7 @@ import { useSidebarState } from "@/hooks/use-sidebar-state"
 export default function TeamPage() {
   const { isOpen: sidebarOpen } = useSidebarState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([])
@@ -90,6 +91,42 @@ export default function TeamPage() {
       toast.error(errorMessage)
       throw error // Re-throw so the form can handle the error
     }
+  }
+
+  // Function to handle updating an existing member
+  const handleUpdateMember = async (formData: MemberFormData) => {
+    if (!selectedMember) return
+
+    try {
+      const updatedMember = await updateTeamMember(selectedMember.id, {
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        skillIds: formData.skillIds,
+      })
+
+      // Reload team members to get updated statistics
+      const refreshedMembers = await getTeamMembers()
+      setTeamMembers(refreshedMembers)
+      
+      toast.success('Team member updated successfully')
+      setSelectedMember(null)
+    } catch (error: any) {
+      console.error('Error updating team member:', error)
+      const errorMessage = error?.message || 'Error updating team member'
+      toast.error(errorMessage)
+      throw error // Re-throw so the form can handle the error
+    }
+  }
+
+  // Function to handle member card click
+  const handleMemberClick = (member: TeamMember) => {
+    setSelectedMember(member)
+  }
+
+  // Function to close edit modal
+  const handleCloseEditModal = () => {
+    setSelectedMember(null)
   }
 
   return (
@@ -167,7 +204,8 @@ export default function TeamPage() {
                 {filteredTeamMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow space-y-3"
+                    onClick={() => handleMemberClick(member)}
+                    className="bg-card border border-border rounded-lg p-4 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer space-y-3"
                   >
                     <div className="flex flex-wrap gap-2">
                       {member.skills.length > 0 ? (
@@ -216,7 +254,25 @@ export default function TeamPage() {
         onOpenChange={setShowAddModal}
         onSubmit={handleCreateMember}
         availableSkills={availableSkills}
+      />
+
+      {selectedMember && (
+        <MemberForm
+          open={!!selectedMember}
+          onOpenChange={handleCloseEditModal}
+          onSubmit={handleUpdateMember}
+          availableSkills={availableSkills}
+          memberId={selectedMember.id}
+          initialData={{
+            name: selectedMember.name,
+            email: selectedMember.email,
+            role: selectedMember.role as "Sales" | "Tech" | "Admin",
+            skillIds: availableSkills
+              .filter(skill => selectedMember.skills.includes(skill.name))
+              .map(skill => skill.id),
+          }}
         />
+      )}
     </div>
   )
 }

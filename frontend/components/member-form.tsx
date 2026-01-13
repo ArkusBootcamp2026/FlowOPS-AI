@@ -21,15 +21,30 @@ interface MemberFormProps {
   onOpenChange: (open: boolean) => void
   onSubmit: (data: MemberFormData) => Promise<void> | void
   availableSkills?: Skill[] // Skills disponibles desde la DB
+  memberId?: string // ID del miembro si está en modo edición
+  initialData?: {
+    name: string
+    email: string
+    role: "Sales" | "Tech" | "Admin"
+    skillIds: string[]
+  } // Datos iniciales para modo edición
 }
 
 const ROLES: Array<"Sales" | "Tech" | "Admin"> = ["Sales", "Tech", "Admin"]
 
-export default function MemberForm({ open, onOpenChange, onSubmit, availableSkills = [] }: MemberFormProps) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [role, setRole] = useState<"Sales" | "Tech" | "Admin" | "">("")
-  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
+export default function MemberForm({ 
+  open, 
+  onOpenChange, 
+  onSubmit, 
+  availableSkills = [],
+  memberId,
+  initialData
+}: MemberFormProps) {
+  const isEditMode = !!memberId && !!initialData
+  const [name, setName] = useState(initialData?.name || "")
+  const [email, setEmail] = useState(initialData?.email || "")
+  const [role, setRole] = useState<"Sales" | "Tech" | "Admin" | "">(initialData?.role || "")
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(initialData?.skillIds || [])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingSkills, setIsLoadingSkills] = useState(false)
   const [skills, setSkills] = useState<Skill[]>(availableSkills)
@@ -58,6 +73,16 @@ export default function MemberForm({ open, onOpenChange, onSubmit, availableSkil
 
     loadSkills()
   }, [open, availableSkills])
+
+  // Load initial data when in edit mode
+  useEffect(() => {
+    if (isEditMode && initialData) {
+      setName(initialData.name || "")
+      setEmail(initialData.email || "")
+      setRole(initialData.role || "")
+      setSelectedSkillIds(initialData.skillIds || [])
+    }
+  }, [isEditMode, initialData, open])
 
   const handleClose = () => {
     onOpenChange(false)
@@ -156,9 +181,13 @@ export default function MemberForm({ open, onOpenChange, onSubmit, availableSkil
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-center">Add Team Member</DialogTitle>
+          <DialogTitle className="text-2xl font-bold text-center">
+            {isEditMode ? "Edit Team Member" : "Add Team Member"}
+          </DialogTitle>
           <DialogDescription className="text-center">
-            Fill in the fields below to add a new team member to your organization
+            {isEditMode 
+              ? "Update the team member information below"
+              : "Fill in the fields below to add a new team member to your organization"}
           </DialogDescription>
         </DialogHeader>
 
@@ -288,7 +317,9 @@ export default function MemberForm({ open, onOpenChange, onSubmit, availableSkil
             className="gap-2"
           >
             <UserPlus className="h-4 w-4" />
-            {isSubmitting ? "Adding..." : "Add Team Member"}
+            {isSubmitting 
+              ? (isEditMode ? "Updating..." : "Adding...") 
+              : (isEditMode ? "Update Team Member" : "Add Team Member")}
           </Button>
         </div>
       </DialogContent>
