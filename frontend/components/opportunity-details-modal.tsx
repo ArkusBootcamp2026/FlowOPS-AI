@@ -1,17 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sparkles, Zap, Edit2, Loader2 } from "lucide-react"
+import { Sparkles, Zap, Edit2, Loader2, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSkills, type Skill } from "@/services/skills"
-import { updateOpportunityDetails, updateOpportunityStatus, type Opportunity } from "@/services/opportunities"
+import { updateOpportunityDetails, updateOpportunityStatus, deleteOpportunity, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
-import { AlertTriangle } from "lucide-react"
 
 interface OpportunityDetailsModalProps {
   opportunity: Opportunity | null
@@ -19,6 +18,7 @@ interface OpportunityDetailsModalProps {
   onAssignClick: () => void
   onSaveEdits?: (updatedOpportunity: Opportunity) => void
   onCancel?: (opportunityId: string) => void
+  onDelete?: (opportunityId: string) => void
 }
 
 export default function OpportunityDetailsModal({
@@ -27,6 +27,7 @@ export default function OpportunityDetailsModal({
   onAssignClick,
   onSaveEdits,
   onCancel,
+  onDelete,
 }: OpportunityDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -34,11 +35,36 @@ export default function OpportunityDetailsModal({
   const [isLoadingSkills, setIsLoadingSkills] = useState(false)
   const [summaryError, setSummaryError] = useState<string>("")
   const [skillError, setSkillError] = useState<string>("")
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDangerZonePopover, setShowDangerZonePopover] = useState(false)
+  const dangerZoneRef = useRef<HTMLDivElement>(null)
   const [editedValues, setEditedValues] = useState({
     summary: "",
     skillId: "none", // Use "none" instead of "" to avoid Select component error
     urgency: "",
   })
+
+  // Reset danger zone popover visibility when modal opens/closes
+  useEffect(() => {
+    setShowDangerZonePopover(false)
+  }, [opportunity])
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dangerZoneRef.current && !dangerZoneRef.current.contains(event.target as Node)) {
+        setShowDangerZonePopover(false)
+      }
+    }
+
+    if (showDangerZonePopover) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDangerZonePopover])
 
   // Load skills from database when modal opens in edit mode
   useEffect(() => {
@@ -417,71 +443,141 @@ export default function OpportunityDetailsModal({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-3 justify-end pt-4 border-t border-border">
-            {isEditing ? (
-              <>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsEditing(false)}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleSaveEdits}
-                  disabled={isSaving || editedValues.summary.trim() === "" || editedValues.skillId === "none"}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={onClose}>
-                  Close
-                </Button>
-                {!opportunity.assignee && <Button onClick={onAssignClick}>Assign to Team Member</Button>}
-              </>
-            )}
-          </div>
-          {/* Danger Zone - Only show for active opportunities */}
-          {opportunity && ['new', 'assigned', 'done'].includes(opportunity.status) && onCancel && (
-            <div className="space-y-3 pt-4 border-t border-destructive/20">
-              <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                  <h3 className="font-semibold text-foreground">Danger Zone</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  This action cannot be undone. Cancelling an opportunity will remove it from the active pipeline.
-                </p>
+          {/* Actions Footer */}
+          <div className="flex gap-3 justify-between items-center pt-4 border-t border-border">
+            {/* Danger Zone button on the left - Only show for active opportunities */}
+            {!isEditing && opportunity && ['new', 'assigned', 'done'].includes(opportunity.status) && (onCancel || onDelete) && (
+              <div className="relative" ref={dangerZoneRef}>
                 <Button
-                  variant="destructive"
-                  onClick={async () => {
-                    if (!opportunity) return
-                    try {
-                      await updateOpportunityStatus(opportunity.id, 'cancelled')
-                      toast.success('Opportunity cancelled successfully')
-                      onCancel(opportunity.id)
-                      onClose()
-                    } catch (error: any) {
-                      toast.error(`Failed to cancel opportunity: ${error.message || 'Unknown error'}`)
-                    }
-                  }}
-                  className="w-full sm:w-auto"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDangerZonePopover(!showDangerZonePopover)}
+                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 >
-                  Cancel Opportunity
+                  <AlertTriangle className="h-4 w-4 mr-1.5" />
+                  <span className="text-sm">Danger Zone</span>
                 </Button>
+
+                {/* Popover menu - opens upward */}
+                {showDangerZonePopover && (
+                  <div className="absolute bottom-full left-0 mb-2 w-80 bg-card border border-destructive/20 rounded-lg shadow-lg z-50">
+                    <div className="bg-destructive/5 border-b border-destructive/20 rounded-t-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                        <h4 className="font-semibold text-foreground text-sm">Danger Zone</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        These actions cannot be undone. Cancelling an opportunity will remove it from the active pipeline. Deleting will permanently remove it.
+                      </p>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      {onCancel && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={async () => {
+                            if (!opportunity) return
+                            setShowDangerZonePopover(false)
+                            try {
+                              await updateOpportunityStatus(opportunity.id, 'cancelled')
+                              toast.success('Opportunity cancelled successfully')
+                              onCancel(opportunity.id)
+                              onClose()
+                            } catch (error: any) {
+                              toast.error(`Failed to cancel opportunity: ${error.message || 'Unknown error'}`)
+                            }
+                          }}
+                          className="w-full"
+                        >
+                          Cancel Opportunity
+                        </Button>
+                      )}
+                      {onDelete && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={async () => {
+                            if (!opportunity) return
+                            
+                            const confirmed = window.confirm('Are you sure you want to permanently delete this opportunity?')
+                            if (!confirmed) return
+
+                            setShowDangerZonePopover(false)
+
+                            try {
+                              setIsDeleting(true)
+                              await deleteOpportunity(opportunity.id)
+                              toast.success('Opportunity deleted successfully')
+                              
+                              // Call onDelete callback to update parent state
+                              if (onDelete) {
+                                onDelete(opportunity.id)
+                              }
+                              
+                              // Close modal immediately after successful deletion
+                              onClose()
+                            } catch (error: any) {
+                              const errorMessage = error?.message || 'Unknown error occurred'
+                              toast.error(`Failed to delete opportunity: ${errorMessage}`)
+                              console.error('Error deleting opportunity:', error)
+                            } finally {
+                              setIsDeleting(false)
+                            }
+                          }}
+                          disabled={isDeleting}
+                          className="w-full"
+                        >
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            'Delete Opportunity'
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Action buttons on the right */}
+            <div className="flex gap-3 ml-auto">
+              {isEditing ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEditing(false)}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveEdits}
+                    disabled={isSaving || editedValues.summary.trim() === "" || editedValues.skillId === "none"}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={onClose}>
+                    Close
+                  </Button>
+                  {!opportunity.assignee && <Button onClick={onAssignClick}>Assign to Team Member</Button>}
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

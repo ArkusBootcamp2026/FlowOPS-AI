@@ -3,20 +3,7 @@
 import OpportunityCard from "@/components/opportunity-card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Loader2 } from "lucide-react"
-
-interface Opportunity {
-  id: string
-  clientName: string
-  company: string
-  summary: string
-  requiredSkill: string | string[]
-  assignee: string
-  status: "new" | "assigned" | "done" | "cancelled" | "archived"
-  urgency: "high" | "medium" | "low"
-  aiSummary: string
-  isProcessing?: boolean
-  createdDate?: string
-}
+import { type Opportunity } from "@/services/opportunities"
 
 interface KanbanColumnProps {
   title: string

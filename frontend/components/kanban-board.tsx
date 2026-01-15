@@ -5,7 +5,7 @@ import KanbanColumn from "@/components/kanban-column"
 import OpportunityDetailsModal from "@/components/opportunity-details-modal"
 import TeamRecommendationModal from "@/components/team-recommendation-modal"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getOpportunities, updateOpportunityStatus, updateOpportunityAssignment, type Opportunity } from "@/services/opportunities"
+import { getOpportunities, updateOpportunityStatus, updateOpportunityAssignment, deleteOpportunity, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
 
 export default function KanbanBoard({ filters }: { filters?: any }) {
@@ -80,7 +80,7 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     }
   }, [])
 
-  const filteredOpportunities = opportunities.filter((opp) => {
+  const filteredOpportunities: Opportunity[] = opportunities.filter((opp) => {
     // Only show opportunities with status: new, assigned, or done (exclude archived and cancelled)
     if (!['new', 'assigned', 'done'].includes(opp.status)) {
       return false
@@ -239,6 +239,35 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     toast.success('Opportunity cancelled')
   }
 
+  const handleDelete = async (opportunityId: string) => {
+    // Get the opportunity before deleting for event emission
+    const deletedOpportunity = opportunities.find(opp => opp.id === opportunityId)
+    
+    // Optimistic update: remove from state immediately
+    setOpportunities((prev) => prev.filter((opp) => opp.id !== opportunityId))
+    
+    try {
+      await deleteOpportunity(opportunityId)
+      
+      toast.success('Opportunity deleted successfully')
+      
+      // Emit event to trigger stats refresh if needed
+      if (deletedOpportunity && deletedOpportunity.status === 'new') {
+        window.dispatchEvent(new CustomEvent('opportunityStatusChanged', {
+          detail: { opportunityId, previousStatus: 'new', newStatus: null }
+        }))
+      }
+    } catch (error: any) {
+      // Revert optimistic update on error
+      const data = await getOpportunities()
+      setOpportunities(data)
+      
+      const errorMessage = error?.message || 'Unknown error occurred'
+      toast.error(`Failed to delete opportunity: ${errorMessage}`)
+      console.error('Error deleting opportunity:', error)
+    }
+  }
+
   const handleSaveEdits = (updatedOpportunity: Opportunity) => {
     if (selectedOpportunity) {
       // Update with real data from DB (already persisted)
@@ -290,7 +319,7 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
             key={column.status}
             title={column.title}
             opportunities={filteredOpportunities.filter((o) => o.status === column.status)}
-            onCardClick={setSelectedOpportunity}
+            onCardClick={(opp) => setSelectedOpportunity(opp)}
             onAssignClick={handleAssignClick}
             onMoveToComplete={handleMoveToComplete}
             onArchive={handleArchive}
@@ -310,6 +339,7 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
           }}
           onSaveEdits={handleSaveEdits}
           onCancel={handleCancel}
+          onDelete={handleDelete}
         />
       )}
 
