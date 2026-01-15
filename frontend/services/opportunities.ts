@@ -887,3 +887,27 @@ export async function getTopNeededSkill(): Promise<string> {
   }
 }
 
+/**
+ * Deletes an opportunity from the database
+ * @param id - Opportunity ID to delete
+ * @returns true if successful, false otherwise
+ */
+export async function deleteOpportunity(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("Opportunities")
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting opportunity:', error)
+      throw error
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error in deleteOpportunity:', error)
+    throw error
+  }
+}
+

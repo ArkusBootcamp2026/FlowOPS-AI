@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react"
 import Sidebar from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
-import { Search, Plus, LayoutGrid, LayoutList } from "lucide-react"
+import { Search, Plus, LayoutGrid, LayoutList, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import OpportunityCard from "@/components/opportunity-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { getOpportunities, updateOpportunityStatus, type Opportunity } from "@/services/opportunities"
+import { getOpportunities, updateOpportunityStatus, deleteOpportunity, type Opportunity } from "@/services/opportunities"
 import { getSkills, type Skill } from "@/services/skills"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 import NewOpportunityModal from "@/components/new-opportunity-modal"
@@ -39,6 +39,7 @@ export default function OpportunitiesPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoadingFilters, setIsLoadingFilters] = useState(true)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
 
   // Load opportunities from database
   useEffect(() => {
@@ -110,6 +111,40 @@ export default function OpportunitiesPage() {
         return "bg-gray-100 text-gray-800"
       default:
         return ""
+    }
+  }
+
+  const handleDeleteOpportunity = async (opportunityId: string, e: React.MouseEvent) => {
+    // Prevent row click event from firing
+    e.stopPropagation()
+    
+    const confirmed = window.confirm('¿Estás seguro de que deseas eliminar esta oportunidad?')
+    if (!confirmed) return
+
+    try {
+      setDeletingIds((prev) => new Set(prev).add(opportunityId))
+      
+      // Optimistic update: remove from state immediately
+      setOpportunities((prev) => prev.filter((opp) => opp.id !== opportunityId))
+      
+      // Delete from database
+      await deleteOpportunity(opportunityId)
+      
+      toast.success('Opportunity deleted successfully')
+    } catch (error: any) {
+      // Revert optimistic update on error
+      const data = await getOpportunities()
+      setOpportunities(data)
+      
+      const errorMessage = error?.message || 'Unknown error occurred'
+      toast.error(`Failed to delete opportunity: ${errorMessage}`)
+      console.error('Error deleting opportunity:', error)
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(opportunityId)
+        return next
+      })
     }
   }
 
@@ -406,6 +441,7 @@ export default function OpportunitiesPage() {
                             <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '15%' }}>Team Member</th>
                             <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Skill</th>
                             <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Status</th>
+                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '5%' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -419,6 +455,7 @@ export default function OpportunitiesPage() {
                               <td className="px-4 py-2"><Skeleton className="h-4 w-24" /></td>
                               <td className="px-4 py-2"><Skeleton className="h-4 w-20" /></td>
                               <td className="px-4 py-2"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                              <td className="px-4 py-2"><Skeleton className="h-4 w-8" /></td>
                             </tr>
                           ))}
                         </tbody>
@@ -467,16 +504,18 @@ export default function OpportunitiesPage() {
                         <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '15%' }}>Team Member</th>
                         <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Skill</th>
                         <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Status</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '5%' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {filteredAndSortedOpportunities.map((opp) => {
                         const skills = Array.isArray(opp.requiredSkill) ? opp.requiredSkill : [opp.requiredSkill]
+                        const isDeleting = deletingIds.has(opp.id)
                         return (
                           <tr
                             key={opp.id}
-                            onClick={() => setSelectedOpportunity(opp)}
-                            className="hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => !isDeleting && setSelectedOpportunity(opp)}
+                            className={`hover:bg-muted/50 transition-colors ${isDeleting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                           >
                             <td className="pl-4 pr-2 py-2 font-medium text-foreground text-sm">
                               <p className="truncate">{opp.clientName}</p>
@@ -519,6 +558,18 @@ export default function OpportunitiesPage() {
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(opp.status)}`}>
                                 {opp.status.charAt(0).toUpperCase() + opp.status.slice(1)}
                               </span>
+                            </td>
+                            <td className="px-4 py-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => handleDeleteOpportunity(opp.id, e)}
+                                disabled={isDeleting}
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete opportunity"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </td>
                           </tr>
                         )
