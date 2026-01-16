@@ -529,6 +529,7 @@ export async function updateOpportunityDetails(
     ai_summary?: string
     urgency?: string
     required_skill_id?: string | null
+    assigned_user_id?: string | null
   }
 ): Promise<Opportunity | null> {
   try {
@@ -562,6 +563,41 @@ export async function updateOpportunityDetails(
         updateData.required_skill_id = updates.required_skill_id
       } else {
         updateData.required_skill_id = null
+      }
+    }
+    
+    if (updates.assigned_user_id !== undefined) {
+      // If it's null, set as null (unassign)
+      if (updates.assigned_user_id === null) {
+        updateData.assigned_user_id = null
+        // Note: We don't automatically change status when unassigning
+        // The user can manually change status if needed
+      } else if (updates.assigned_user_id.trim() !== '') {
+        // Validate that assigned_user_id is a valid UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(updates.assigned_user_id)) {
+          throw new Error(`assigned_user_id must be a valid UUID, not a name. Received value: ${updates.assigned_user_id}`)
+        }
+        updateData.assigned_user_id = updates.assigned_user_id
+        // If assigning a user and status is 'new', change to 'assigned'
+        // We'll get the current opportunity first to check its status
+      } else {
+        updateData.assigned_user_id = null
+      }
+    }
+    
+    // If we're assigning a user, check if we need to update status
+    if (updates.assigned_user_id !== undefined && updates.assigned_user_id !== null && updates.assigned_user_id.trim() !== '') {
+      // Get current opportunity to check status
+      const { data: currentOpp } = await supabase
+        .from("Opportunities")
+        .select('status')
+        .eq('id', id)
+        .single()
+      
+      // If status is 'new' and we're assigning a user, change to 'assigned'
+      if (currentOpp && currentOpp.status?.toLowerCase() === 'new') {
+        updateData.status = 'assigned'
       }
     }
 
