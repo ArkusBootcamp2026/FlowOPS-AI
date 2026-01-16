@@ -57,6 +57,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         ai_summary,
         urgency,
         created_at,
+        required_skill_id,
         Clients!client_id (
           name,
           company
@@ -75,7 +76,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
       // Query without relations
       const { data: oppsWithoutRelations, error: simpleError } = await supabase
         .from("Opportunities")
-        .select('id, client_id, assigned_user_id, status, original_message, ai_summary, urgency, created_at')
+        .select('id, client_id, assigned_user_id, status, original_message, ai_summary, urgency, created_at, required_skill_id')
         .order('created_at', { ascending: false })
 
       if (simpleError) {
@@ -198,13 +199,34 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         status = 'assigned'
       }
       
-      return {
+      // Get requiredSkillId: prefer the direct field, but if it's null and we have skills from the map, use the first skill's ID
+      let requiredSkillId = opp.required_skill_id || null
+      if (!requiredSkillId && skills.length > 0 && skills[0]?.id) {
+        // If required_skill_id is null but we have skills from the relation table, use the first skill's ID
+        requiredSkillId = skills[0].id
+      }
+      
+      // Debug: Log first opportunity to verify required_skill_id is present
+      if (process.env.NODE_ENV === 'development' && opportunitiesData.indexOf(opp) === 0) {
+        console.log('getOpportunities - First opportunity raw data:', {
+          id: opp.id,
+          required_skill_id: opp.required_skill_id,
+          required_skill_id_type: typeof opp.required_skill_id,
+          has_required_skill_id: opp.hasOwnProperty('required_skill_id'),
+          allKeys: Object.keys(opp),
+          skillsFromMap: skillsMap[opp.id],
+          skillNames: skillNames,
+          finalRequiredSkillId: requiredSkillId
+        })
+      }
+      
+      const transformed = {
         id: opp.id,
         clientName: client?.name || 'Unknown Client',
         company: client?.company || 'Unknown Company',
         summary: opp.original_message || '',
         requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
-        requiredSkillId: opp.required_skill_id || null,
+        requiredSkillId: requiredSkillId,
         assignee: assignedUser?.full_name || '',
         assigneeId: opp.assigned_user_id || null,
         status: status,
@@ -217,6 +239,18 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         }),
         created_at: opp.created_at // Include raw timestamp for filtering
       }
+      
+      // Debug: Log first transformed opportunity
+      if (process.env.NODE_ENV === 'development' && opportunitiesData.indexOf(opp) === 0) {
+        console.log('getOpportunities - First opportunity transformed:', {
+          id: transformed.id,
+          requiredSkillId: transformed.requiredSkillId,
+          requiredSkillId_type: typeof transformed.requiredSkillId,
+          requiredSkill: transformed.requiredSkill
+        })
+      }
+      
+      return transformed
     })
 
     return transformedOpportunities
