@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import AIReviewOverlay from "./ai-review-overlay"
 import { getAllClients, type Client } from "@/services/clients"
 import { motion } from "framer-motion"
+import { Loader2 } from "lucide-react"
 
 interface NewOpportunityModalProps {
   open: boolean
@@ -153,8 +154,19 @@ export default function NewOpportunityModal({ open, onOpenChange }: NewOpportuni
               Cancel
             </Button>
             <motion.div whileTap={{ scale: 0.95 }}>
-              <Button onClick={handleAnalyzeWithAI} disabled={!clientName || !company || !clientText} className="rounded-2xl">
-                Analyze with AI
+              <Button 
+                onClick={handleAnalyzeWithAI} 
+                disabled={!clientName || !company || !clientText || showAIReview} 
+                className={`rounded-2xl ${showAIReview ? 'shimmer' : ''}`}
+              >
+                {showAIReview ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Analyze with AI'
+                )}
               </Button>
             </motion.div>
           </div>

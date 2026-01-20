@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, X } from "lucide-react"
 import { getSkills, type Skill } from "@/services/skills"
+import { motion, AnimatePresence } from "framer-motion"
 
 export interface MemberFormData {
   name: string
@@ -277,22 +278,36 @@ export default function MemberForm({
                 {/* Selected Skills */}
                 {selectedSkillIds.length > 0 && (
                   <div className="mb-3 flex flex-wrap gap-2 p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40 min-h-[60px]">
-                    {getSelectedSkills().map((skill) => (
-                      <div
-                        key={skill.id}
-                        className="px-3 py-1.5 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60 text-xs flex items-center gap-2"
-                      >
-                        {skill.name}
-                        <button
-                          onClick={() => handleRemoveSkill(skill.id)}
-                          className="hover:opacity-70"
-                          disabled={isSubmitting}
-                          type="button"
+                    <AnimatePresence>
+                      {getSelectedSkills().map((skill) => (
+                        <motion.div
+                          key={skill.id}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ 
+                            type: "spring", 
+                            stiffness: 400, 
+                            damping: 10 
+                          }}
+                          whileHover={{ 
+                            scale: 1.15,
+                            boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)"
+                          }}
+                          className="px-3 py-1.5 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60 text-xs flex items-center gap-2 cursor-default"
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
+                          {skill.name}
+                          <button
+                            onClick={() => handleRemoveSkill(skill.id)}
+                            className="hover:opacity-70"
+                            disabled={isSubmitting}
+                            type="button"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 )}
 
@@ -305,7 +320,7 @@ export default function MemberForm({
                         onClick={() => handleAddSkill(skill.id)}
                         disabled={isSubmitting}
                         type="button"
-                        className="px-3 py-1.5 bg-white/70 text-slate-700 rounded-full text-xs font-medium hover:bg-gradient-to-r hover:from-primary hover:to-accent hover:text-white transition-all shadow-sm border border-white/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 bg-white/70 text-slate-700 rounded-full text-xs font-medium hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-400 hover:text-white transition-all shadow-sm border border-white/60 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {skill.name}
                       </button>

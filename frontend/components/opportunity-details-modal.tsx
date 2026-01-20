@@ -495,7 +495,7 @@ export default function OpportunityDetailsModal({
             {!isEditing ? (
               opportunity.assignee ? (
                 <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-400/20 flex items-center justify-center shadow-sm">
                     <span className="text-sm font-bold text-primary">{opportunity.assignee.charAt(0)}</span>
                   </div>
                   <div>

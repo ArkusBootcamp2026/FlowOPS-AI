@@ -175,7 +175,7 @@ export default function OpportunityCard({
           </div>
           {opportunity.assignee && (
             <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shadow-sm">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-400/20 flex items-center justify-center shadow-sm">
                 <span className="text-xs font-bold text-primary">{opportunity.assignee.charAt(0)}</span>
               </div>
               <span className="text-xs text-slate-800 font-medium">{opportunity.assignee.split(" ")[0]}</span>

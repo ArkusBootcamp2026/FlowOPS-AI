@@ -69,17 +69,30 @@ export default function KanbanColumn({
                 {snapshot.isDraggingOver ? "Drop here" : "No opportunities"}
               </div>
             ) : (
-              opportunities.map((opp, index) => {
-                const isUpdating = updatingIds.has(opp.id)
-                return (
-                  <motion.div
-                    key={opp.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                    layout
-                    className="flex gap-2 items-start relative"
-                  >
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  visible: {
+                    transition: {
+                      staggerChildren: 0.05
+                    }
+                  }
+                }}
+              >
+                {opportunities.map((opp, index) => {
+                  const isUpdating = updatingIds.has(opp.id)
+                  return (
+                    <motion.div
+                      key={opp.id}
+                      variants={{
+                        hidden: { opacity: 0, y: 20 },
+                        visible: { opacity: 1, y: 0 }
+                      }}
+                      transition={{ duration: 0.3 }}
+                      layout
+                      className="flex gap-2 items-start relative"
+                    >
                     {isUpdating && (
                       <div className="absolute inset-0 bg-background/50 rounded-lg flex items-center justify-center z-10">
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -130,9 +143,10 @@ export default function KanbanColumn({
                         </Button>
                       )}
                     </div>
-                  </motion.div>
-                )
-              })
+                    </motion.div>
+                  )
+                })}
+              </motion.div>
             )}
             {provided.placeholder}
           </div>

@@ -12,11 +12,11 @@ import { getSkills, type Skill } from "@/services/skills"
 import MemberForm, { type MemberFormData } from "@/components/member-form"
 import SkillsManagementModal from "@/components/skills-management-modal"
 import { toast } from "sonner"
-import { useSidebarState } from "@/hooks/use-sidebar-state"
+import AppLayout from "@/components/app-layout"
+import TopBar from "@/components/top-bar"
 import { Settings } from "lucide-react"
 
 export default function TeamPage() {
-  const { isOpen: sidebarOpen } = useSidebarState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
@@ -79,10 +79,14 @@ export default function TeamPage() {
   // Filter team members based on search term and skill filters
   const filteredTeamMembers = teamMembers.filter((member) => {
     // Apply skill filters (OR logic: member must have at least one of the selected skills)
+    // Only apply skill filter if there are active filters
     if (activeSkillFilters.length > 0) {
-      const hasMatchingSkill = activeSkillFilters.some(filterSkill =>
-        member.skills.includes(filterSkill)
-      )
+      const hasMatchingSkill = activeSkillFilters.some(filterSkill => {
+        if (!member.skills || !Array.isArray(member.skills)) return false
+        return member.skills.some(skill => 
+          skill && skill.trim().toLowerCase() === filterSkill.trim().toLowerCase()
+        )
+      })
       if (!hasMatchingSkill) return false
     }
 
@@ -94,7 +98,7 @@ export default function TeamPage() {
     const matchesEmail = member.email.toLowerCase().includes(searchLower)
     
     // Check if search matches any skill
-    const matchesSkill = member.skills.some(skill => 
+    const matchesSkill = member.skills && Array.isArray(member.skills) && member.skills.some(skill => 
       skill && skill.toLowerCase().includes(searchLower)
     )
     
@@ -170,44 +174,48 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-[#d1d8e6] via-[#eef2f7] to-[#e2e8f0] text-foreground">
-      <Sidebar open={sidebarOpen} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <main className="flex-1 overflow-auto">
-          <div className="h-16 mt-4 mx-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-sm px-6 flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-bold text-slate-800">Team Members</h1>
-            <div className="flex items-center gap-4 flex-1 max-w-md">
-              <div className="flex items-center gap-2 flex-1 relative">
-                <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="search"
-                  placeholder="Search team members..."
-                  className="pl-10 border-0 bg-white/50 backdrop-blur-sm placeholder:text-slate-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+    <AppLayout
+        topBar={
+          <TopBar
+            title="Team Members"
+            searchBar={
+              <div className="flex items-center gap-2 w-full max-w-md">
+                <div className="flex items-center gap-2 flex-1 relative">
+                  <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="search"
+                    placeholder="Search team members..."
+                    className="pl-10 border-0 bg-white/50 backdrop-blur-sm placeholder:text-slate-500 w-full"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                onClick={() => setShowSkillsModal(true)} 
-                variant="outline"
-                className="gap-2" 
-                size="sm"
-              >
-                <Settings className="h-4 w-4" />
-                Manage Skills
-              </Button>
-              <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-2xl" size="sm">
-                <Plus className="h-4 w-4" />
-                Add Team Member
-              </Button>
-            </div>
-          </div>
-
-          {/* Skills Filter Bar */}
-          {allUniqueSkills.length > 0 ? (
-            <div className="mx-4 mt-4 p-4 bg-white/60 backdrop-blur-xl border border-white/40 rounded-[2rem] flex flex-wrap gap-2 shadow-sm">
+            }
+            rightContent={
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={() => setShowSkillsModal(true)} 
+                  variant="outline"
+                  className="gap-2" 
+                  size="sm"
+                >
+                  <Settings className="h-4 w-4" />
+                  Manage Skills
+                </Button>
+                <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-2xl" size="sm">
+                  <Plus className="h-4 w-4" />
+                  Add Team Member
+                </Button>
+              </div>
+            }
+          />
+        }
+    >
+      <div className="p-6 space-y-4">
+        {/* Skills Filter Bar */}
+        {allUniqueSkills.length > 0 ? (
+          <div className="p-4 bg-white/60 backdrop-blur-xl border border-white/40 rounded-[2rem] flex flex-wrap gap-2 shadow-sm">
               {allUniqueSkills.map((skill) => {
                 const isActive = activeSkillFilters.includes(skill)
                 return (
@@ -216,8 +224,8 @@ export default function TeamPage() {
                     onClick={() => toggleSkillFilter(skill)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                       isActive
-                        ? "bg-primary text-white border-primary shadow-primary/20 shadow-lg scale-105"
-                        : "bg-white/50 text-slate-600 border-slate-200 hover:border-primary/40"
+                        ? "bg-indigo-500 text-white border-indigo-500 shadow-indigo-500/20 shadow-lg scale-105"
+                        : "bg-white/50 text-slate-600 border-slate-200 hover:border-indigo-500/40"
                     }`}
                   >
                     {skill}
@@ -235,7 +243,7 @@ export default function TeamPage() {
             </div>
           ) : null}
 
-          <div className="p-6 pt-4 space-y-6 px-4">
+          <div className="space-y-6">
 
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -338,9 +346,8 @@ export default function TeamPage() {
                   </div>
                 ))}
               </div>
-            )}
+          )}
           </div>
-        </main>
       </div>
 
       <MemberForm
@@ -373,6 +380,6 @@ export default function TeamPage() {
         onOpenChange={setShowSkillsModal}
         onSkillsUpdated={handleSkillsUpdated}
       />
-    </div>
+    </AppLayout>
   )
 }

@@ -15,11 +15,11 @@ import { getSkills, type Skill } from "@/services/skills"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 import NewOpportunityModal from "@/components/new-opportunity-modal"
 import OpportunityDetailsModal from "@/components/opportunity-details-modal"
-import { useSidebarState } from "@/hooks/use-sidebar-state"
+import AppLayout from "@/components/app-layout"
+import TopBar from "@/components/top-bar"
 import { toast } from "sonner"
 
 export default function OpportunitiesPage() {
-  const { isOpen: sidebarOpen } = useSidebarState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<"table" | "grid">("table")
   const [sortBy, setSortBy] = useState("recent")
@@ -296,31 +296,35 @@ export default function OpportunitiesPage() {
   })
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-[#d1d8e6] via-[#eef2f7] to-[#e2e8f0] text-foreground">
-      <Sidebar open={sidebarOpen} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <main className="flex-1 overflow-auto">
-          <div className="h-16 mt-4 mx-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-sm px-6 flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-bold text-slate-800">Opportunities History</h1>
-            <div className="flex items-center gap-4 flex-1 max-w-md">
-              <div className="flex items-center gap-2 flex-1 relative">
-                <Search className="absolute left-3 h-4 w-4 text-slate-500 pointer-events-none" />
-                <Input
-                  type="search"
-                  placeholder="Search opportunities..."
-                  className="pl-10 border-0 bg-white/50 backdrop-blur-sm placeholder:text-slate-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+    <>
+      <AppLayout
+        topBar={
+          <TopBar
+            title="Opportunities History"
+            searchBar={
+              <div className="flex items-center gap-2 w-full max-w-md">
+                <div className="flex items-center gap-2 flex-1 relative">
+                  <Search className="absolute left-3 h-4 w-4 text-slate-500 pointer-events-none" />
+                  <Input
+                    type="search"
+                    placeholder="Search opportunities..."
+                    className="pl-10 border-0 bg-white/50 backdrop-blur-sm placeholder:text-slate-500 w-full"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
-            <Button className="gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent text-white hover:from-primary/90 hover:to-accent/90 shadow-lg hover:shadow-xl transition-all" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
-              <Plus className="h-4 w-4" />
-              New Opportunity
-            </Button>
-          </div>
-
-          <div className="p-6 pt-4 space-y-4 px-4">
+            }
+            rightContent={
+              <Button className="gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-400 text-white hover:from-indigo-600 hover:to-purple-500 shadow-lg hover:shadow-xl transition-all" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
+                <Plus className="h-4 w-4" />
+                New Opportunity
+              </Button>
+            }
+          />
+        }
+      >
+        <div className="p-6 space-y-4">
             {/* History Page Filters - Organized in responsive grid */}
             <div className="p-6 bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
               <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
@@ -345,7 +349,7 @@ export default function OpportunitiesPage() {
                         onClick={() => setViewMode("table")}
                         className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all z-10 ${
                           viewMode === "table"
-                            ? "bg-gradient-to-r from-primary to-accent text-white shadow-md"
+                            ? "bg-gradient-to-r from-indigo-500 to-purple-400 text-white shadow-md"
                             : "text-slate-600 hover:text-slate-800"
                         }`}
                       >
@@ -356,7 +360,7 @@ export default function OpportunitiesPage() {
                         onClick={() => setViewMode("grid")}
                         className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all z-10 ${
                           viewMode === "grid"
-                            ? "bg-gradient-to-r from-primary to-accent text-white shadow-md"
+                            ? "bg-gradient-to-r from-indigo-500 to-purple-400 text-white shadow-md"
                             : "text-slate-600 hover:text-slate-800"
                         }`}
                       >
@@ -557,20 +561,40 @@ export default function OpportunitiesPage() {
                 </div>
               </div>
             ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+              <motion.div 
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full"
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  visible: {
+                    transition: {
+                      staggerChildren: 0.05
+                    }
+                  }
+                }}
+              >
                 {filteredAndSortedOpportunities.map((opp, index) => (
-                  <OpportunityCard
+                  <motion.div
                     key={opp.id}
-                    opportunity={{
-                      ...opp,
-                      isProcessing: false,
+                    variants={{
+                      hidden: { opacity: 0, y: 20 },
+                      visible: { opacity: 1, y: 0 }
                     }}
-                    onClick={() => setSelectedOpportunity(opp)}
-                    isDraggable={false}
-                    index={index}
-                  />
+                    transition={{ duration: 0.3 }}
+                    layout
+                  >
+                    <OpportunityCard
+                      opportunity={{
+                        ...opp,
+                        isProcessing: false,
+                      }}
+                      onClick={() => setSelectedOpportunity(opp)}
+                      isDraggable={false}
+                      index={index}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             ) : (
               <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] overflow-hidden shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
                 <div className="overflow-x-auto">
@@ -660,9 +684,9 @@ export default function OpportunitiesPage() {
                 </div>
               </div>
             )}
-          </div>
-        </main>
-      </div>
+        </div>
+      </AppLayout>
+
       <NewOpportunityModal 
         open={showNewOpportunityModal} 
         onOpenChange={setShowNewOpportunityModal} 
@@ -699,6 +723,6 @@ export default function OpportunitiesPage() {
           }}
         />
       )}
-    </div>
+    </>
   )
 }

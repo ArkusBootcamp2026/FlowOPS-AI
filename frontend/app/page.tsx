@@ -1,20 +1,35 @@
 "use client"
 
-import Sidebar from "@/components/sidebar"
+import AppLayout from "@/components/app-layout"
 import DashboardContent from "@/components/dashboard-content"
-import { useSidebarState } from "@/hooks/use-sidebar-state"
+import TopBar from "@/components/top-bar"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
+import { useState } from "react"
+import NewOpportunityModal from "@/components/new-opportunity-modal"
 
 export default function Page() {
-  const { isOpen: sidebarOpen } = useSidebarState(true)
+  const [showNewOpportunity, setShowNewOpportunity] = useState(false)
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-[#d1d8e6] via-[#eef2f7] to-[#e2e8f0] text-foreground">
-      <Sidebar open={sidebarOpen} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto">
-          <DashboardContent />
-        </div>
-      </div>
-    </div>
+    <AppLayout
+      topBar={
+        <TopBar
+          title="Dashboard"
+          rightContent={
+            <Button 
+              onClick={() => setShowNewOpportunity(true)} 
+              className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-400 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" />
+              New Opportunity
+            </Button>
+          }
+        />
+      }
+    >
+      <DashboardContent showNewOpportunity={showNewOpportunity} setShowNewOpportunity={setShowNewOpportunity} />
+    </AppLayout>
   )
 }

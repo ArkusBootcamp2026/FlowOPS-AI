@@ -8,9 +8,17 @@ import { Flame, Code, Users, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getHighPriorityCount, getTopNeededSkill } from "@/services/opportunities"
 import { getTeamAvailabilityPercentage } from "@/services/members"
+import { motion } from "framer-motion"
 
-export default function DashboardContent() {
-  const [showNewOpportunity, setShowNewOpportunity] = useState(false)
+interface DashboardContentProps {
+  showNewOpportunity?: boolean
+  setShowNewOpportunity?: (show: boolean) => void
+}
+
+export default function DashboardContent({ showNewOpportunity: externalShowNewOpportunity, setShowNewOpportunity: externalSetShowNewOpportunity }: DashboardContentProps = {}) {
+  const [internalShowNewOpportunity, setInternalShowNewOpportunity] = useState(false)
+  const showNewOpportunity = externalShowNewOpportunity ?? internalShowNewOpportunity
+  const setShowNewOpportunity = externalSetShowNewOpportunity ?? setInternalShowNewOpportunity
   const [filters, setFilters] = useState({
     urgency: "",
     skill: "",
@@ -65,25 +73,32 @@ export default function DashboardContent() {
   }, [])
 
   return (
-    <div className="space-y-6 p-6 pt-4">
-      <div className="mt-4 mx-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-sm px-8 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <Button 
-          onClick={() => setShowNewOpportunity(true)} 
-          className="gap-2 bg-gradient-to-r from-primary to-accent text-white rounded-2xl shadow-lg hover:shadow-xl transition-all"
-          size="sm"
+    <div className="space-y-6 p-6">
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            visible: {
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
         >
-          <Plus className="h-4 w-4" />
-          New Opportunity
-        </Button>
-      </div>
-
-      <div className="space-y-6 px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {stats.map((stat) => (
-            <StatsCard key={stat.label} {...stat} />
+            <motion.div
+              key={stat.label}
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 }
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              <StatsCard {...stat} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         <FilterBar filters={filters} setFilters={setFilters} hideSortBy />
 
@@ -93,7 +108,6 @@ export default function DashboardContent() {
         </div>
 
         <NewOpportunityModal open={showNewOpportunity} onOpenChange={setShowNewOpportunity} />
-      </div>
     </div>
   )
 }
