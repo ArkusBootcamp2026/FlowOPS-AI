@@ -5,7 +5,8 @@ export interface TeamMember {
   name: string
   email: string
   role?: string
-  skills: string[]
+  skills: string[] // Skill names for display
+  skillIds: string[] // Skill IDs for matching
   activeOpportunities: number
   completedOpportunities: number
 }
@@ -45,16 +46,19 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
       `)
       .in('user_id', profileIds)
 
-    // Create a map of skills per user
+    // Create maps of skill names and IDs per user
     const skillsMap: Record<string, string[]> = {}
+    const skillIdsMap: Record<string, string[]> = {}
     
     if (!userSkillsError && userSkills && userSkills.length > 0) {
       userSkills.forEach((us: any) => {
         if (us.skill && us.user_id) {
           if (!skillsMap[us.user_id]) {
             skillsMap[us.user_id] = []
+            skillIdsMap[us.user_id] = []
           }
           skillsMap[us.user_id].push(us.skill.name)
+          skillIdsMap[us.user_id].push(us.skill.id)
         }
       })
     }
@@ -88,6 +92,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
       email: profile.email || '',
       role: profile.role || undefined,
       skills: skillsMap[profile.id] || [],
+      skillIds: skillIdsMap[profile.id] || [],
       activeOpportunities: activeOppsMap[profile.id] || 0,
       completedOpportunities: completedOppsMap[profile.id] || 0,
     }))

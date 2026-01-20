@@ -177,21 +177,27 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
       // 1. Find or create the client
       const client = await findOrCreateClient(clientName, company)
 
-      // 2. Find the first skill ID from selected skills for backward compatibility
-      // Filter out "Pending / No specific skill" option
+      // 2. Convert selected skill names to skill IDs
+      // Filter out "Pending / No specific skill" option and get real skill IDs
       const PENDING_OPTION = "Pending / No specific skill"
       const realSkills = selectedSkills.filter(s => s !== PENDING_OPTION)
-      const firstSkillName = realSkills.length > 0 ? realSkills[0] : null
-      const firstSkill = firstSkillName ? skills.find(s => s.name.toLowerCase() === firstSkillName.toLowerCase()) : null
-      const skillIdToSave = firstSkill ? firstSkill.id : null
+      const skillIds: string[] = []
+      
+      for (const skillName of realSkills) {
+        const skill = skills.find(s => s.name.toLowerCase() === skillName.toLowerCase())
+        if (skill) {
+          skillIds.push(skill.id)
+        }
+      }
 
-      // 3. Create the opportunity in Supabase
+      // 3. Create the opportunity in Supabase with skill IDs array
+      // If no skills selected, createOpportunity will automatically add "Pending"
       const newOpportunity = await createOpportunity(
         client.id,
         clientText,
         summary,
         urgency.toLowerCase() as "high" | "medium" | "low",
-        skillIdToSave
+        skillIds
       )
 
       // 4. Override requiredSkill to include Pending if selected

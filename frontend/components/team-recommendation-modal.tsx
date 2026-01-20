@@ -14,6 +14,7 @@ interface Opportunity {
   company: string
   summary: string
   requiredSkill: string | string[]
+  requiredSkillIds?: string[] // Array of skill IDs for matching
   assignee: string
   status: "new" | "assigned" | "done" | "cancelled" | "archived"
   urgency: "high" | "medium" | "low"
@@ -55,49 +56,59 @@ export default function TeamRecommendationModal({
     loadTeamMembers()
   }, [open])
 
-  // Normalize requiredSkill to array for comparison
-  // Filter out "Pending / No specific skill" option
+  // Get required skill IDs from opportunity (prefer IDs over names for accurate matching)
   const PENDING_OPTION = "Pending / No specific skill"
-  const requiredSkills = Array.isArray(opportunity.requiredSkill) 
-    ? opportunity.requiredSkill.filter(skill => skill && skill !== '' && skill !== PENDING_OPTION)
-    : (opportunity.requiredSkill && opportunity.requiredSkill !== '' && opportunity.requiredSkill !== PENDING_OPTION ? [opportunity.requiredSkill] : [])
+  const requiredSkillIds = opportunity.requiredSkillIds || []
   
-  // Check if only PENDING_OPTION is selected
+  // Convert requiredSkill to array and filter out PENDING_OPTION
+  const requiredSkills = Array.isArray(opportunity.requiredSkill)
+    ? opportunity.requiredSkill.filter(s => s && s !== PENDING_OPTION)
+    : opportunity.requiredSkill && opportunity.requiredSkill !== PENDING_OPTION
+      ? [opportunity.requiredSkill]
+      : []
+  
+  // Check if only PENDING_OPTION is selected (by name)
   const hasOnlyPending = Array.isArray(opportunity.requiredSkill)
     ? opportunity.requiredSkill.length === 1 && opportunity.requiredSkill[0] === PENDING_OPTION
     : opportunity.requiredSkill === PENDING_OPTION
 
-  // Calculate match score for each member based on how many skills match
+  // Calculate match score for each member based on how many skill IDs match
   interface MemberWithScore extends TeamMember {
     matchScore: number
-    matchingSkills: string[]
+    matchingSkillIds: string[]
   }
 
   const membersWithScores = teamMembers.map((member) => {
-    // If only PENDING_OPTION is selected, show all members with equal score
-    if (hasOnlyPending || requiredSkills.length === 0) {
-      return { ...member, matchScore: 0.5, matchingSkills: [] } as MemberWithScore // 0.5 = neutral score
+    // If only PENDING_OPTION is selected or no skills, show all members with equal score
+    if (hasOnlyPending || requiredSkillIds.length === 0) {
+      return { ...member, matchScore: 0.5, matchingSkillIds: [] } as MemberWithScore // 0.5 = neutral score
     }
     
-    const matchingSkills = member.skills.filter(skill => 
-      requiredSkills.some(reqSkill => reqSkill.toLowerCase() === skill.toLowerCase())
+    // Compare skill IDs directly (more accurate than name comparison)
+    const matchingSkillIds = member.skillIds.filter(skillId => 
+      requiredSkillIds.includes(skillId)
     )
-    const matchScore = matchingSkills.length / requiredSkills.length // Percentage match
+    const matchScore = matchingSkillIds.length / requiredSkillIds.length // Percentage match
     
-    return { ...member, matchScore, matchingSkills } as MemberWithScore
+    // Get matching skill names for display
+    const matchingSkills = member.skills.filter((skillName, index) => 
+      matchingSkillIds.includes(member.skillIds[index])
+    )
+    
+    return { ...member, matchScore, matchingSkillIds, matchingSkills } as MemberWithScore
   })
 
   // Filter and sort members by match score
   // If only PENDING_OPTION, show all members equally
-  const matchingMembers: MemberWithScore[] = hasOnlyPending || requiredSkills.length === 0
-    ? membersWithScores.sort((a, b) => a.member.name.localeCompare(b.member.name)) // Sort alphabetically
+  const matchingMembers: MemberWithScore[] = hasOnlyPending || requiredSkillIds.length === 0
+    ? membersWithScores.sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
     : membersWithScores
         .filter(({ matchScore }) => matchScore > 0)
         .sort((a, b) => b.matchScore - a.matchScore) // Sort by highest match score first
   
   // Only show alternative members if no skills were extracted by AI or only PENDING_OPTION
   // If skills were extracted, only show matching members
-  const shouldShowAlternatives = hasOnlyPending || requiredSkills.length === 0 || requiredSkills.every(skill => !skill || skill === '')
+  const shouldShowAlternatives = hasOnlyPending || requiredSkillIds.length === 0
   const allOtherMembers = shouldShowAlternatives 
     ? [] // Don't show alternatives if PENDING_OPTION is selected (all members are shown as matches)
     : membersWithScores
@@ -137,7 +148,7 @@ export default function TeamRecommendationModal({
                       </span>
                     ))}
                     <span className="text-sm text-slate-600">
-                      {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""} with {requiredSkills.length > 1 ? 'these skills' : 'this skill'}
+                      {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""} with {requiredSkillIds.length > 1 ? 'these skills' : 'this skill'}
                     </span>
                   </>
                 ) : (
@@ -245,8 +256,9 @@ export default function TeamRecommendationModal({
                           )}
                           <div className="flex gap-2 mt-3 flex-wrap">
                             {member.skills.length > 0 ? (
-                              member.skills.map((skill) => {
-                                const isMatching = member.matchingSkills.includes(skill)
+                              member.skills.map((skill, index) => {
+                                const skillId = member.skillIds[index]
+                                const isMatching = skillId && member.matchingSkillIds.includes(skillId)
                                 return (
                                   <span
                                     key={skill}

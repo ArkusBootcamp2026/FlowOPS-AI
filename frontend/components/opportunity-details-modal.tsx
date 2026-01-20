@@ -210,7 +210,6 @@ export default function OpportunityDetailsModal({
       const updates: {
         ai_summary?: string
         urgency?: string
-        required_skill_id?: string | null
       } = {}
 
       // Only include fields that have changed (using trimmed value)
@@ -222,26 +221,25 @@ export default function OpportunityDetailsModal({
         updates.urgency = editedValues.urgency
       }
 
-      // Handle skill update - use first real skill (not Pending) for backward compatibility
+      // Handle skill update - convert selected skill names to IDs
       const PENDING_OPTION = "Pending / No specific skill"
       const realSkills = editedValues.selectedSkills.filter(s => s !== PENDING_OPTION)
-      const firstSkill = realSkills.length > 0 
-        ? skills.find(s => s.name === realSkills[0])
-        : null
-      const newSkillId = firstSkill ? firstSkill.id : null
+      const skillIds: string[] = []
       
-      // Compare with current skill
-      const currentSkills = Array.isArray(opportunity.requiredSkill) 
-        ? opportunity.requiredSkill.filter(s => s !== PENDING_OPTION)
-        : (opportunity.requiredSkill && opportunity.requiredSkill !== PENDING_OPTION ? [opportunity.requiredSkill] : [])
-      const currentFirstSkill = currentSkills.length > 0 
-        ? skills.find(s => s.name === currentSkills[0])
-        : null
-      const currentSkillId = currentFirstSkill ? currentFirstSkill.id : null
-      
-      if (newSkillId !== currentSkillId) {
-        updates.required_skill_id = newSkillId
+      for (const skillName of realSkills) {
+        const skill = skills.find(s => s.name.toLowerCase() === skillName.toLowerCase())
+        if (skill) {
+          skillIds.push(skill.id)
+        }
       }
+      
+      // Compare with current skills
+      const currentSkillIds = opportunity.requiredSkillIds || []
+      const skillIdsChanged = skillIds.length !== currentSkillIds.length || 
+        skillIds.some(id => !currentSkillIds.includes(id))
+      
+      // Store skillIds to pass to updateOpportunityDetails
+      const skillIdsToUpdate = skillIdsChanged ? skillIds : undefined
       
       // Update assigned_user_id
       const selectedMember = teamMembers.find(m => m.id === editedValues.assignedMemberId)
@@ -259,8 +257,8 @@ export default function OpportunityDetailsModal({
       }
 
       // Only update if there are changes
-      if (Object.keys(updates).length > 0) {
-        const updatedOpportunity = await updateOpportunityDetails(opportunity.id, updates)
+      if (Object.keys(updates).length > 0 || skillIdsToUpdate !== undefined) {
+        const updatedOpportunity = await updateOpportunityDetails(opportunity.id, updates, skillIdsToUpdate)
         
         if (updatedOpportunity && onSaveEdits) {
           // Preserve selectedSkills including Pending in the returned opportunity
