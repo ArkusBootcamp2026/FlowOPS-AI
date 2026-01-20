@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus } from "lucide-react"
 import AIReviewOverlay from "./ai-review-overlay"
 import { getAllClients, type Client } from "@/services/clients"
 
@@ -137,18 +136,7 @@ export default function NewOpportunityModal({ open, onOpenChange }: NewOpportuni
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label htmlFor="client-text">Paste Client Email/Description</Label>
-              <Button 
-                onClick={handleAnalyzeWithAI} 
-                disabled={!clientName || !company || !clientText} 
-                size="sm"
-                className="gap-2 rounded-2xl"
-              >
-                <Plus className="h-4 w-4" />
-                Analyze with AI
-              </Button>
-            </div>
+            <Label htmlFor="client-text" className="mb-2 block">Paste Client Email/Description</Label>
             <Textarea
               id="client-text"
               placeholder="Paste the client's email, message, or requirements here..."
