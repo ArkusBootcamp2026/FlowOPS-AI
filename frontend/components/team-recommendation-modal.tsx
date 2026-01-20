@@ -56,9 +56,16 @@ export default function TeamRecommendationModal({
   }, [open])
 
   // Normalize requiredSkill to array for comparison
+  // Filter out "Pending / No specific skill" option
+  const PENDING_OPTION = "Pending / No specific skill"
   const requiredSkills = Array.isArray(opportunity.requiredSkill) 
-    ? opportunity.requiredSkill.filter(skill => skill && skill !== '')
-    : (opportunity.requiredSkill && opportunity.requiredSkill !== '' ? [opportunity.requiredSkill] : [])
+    ? opportunity.requiredSkill.filter(skill => skill && skill !== '' && skill !== PENDING_OPTION)
+    : (opportunity.requiredSkill && opportunity.requiredSkill !== '' && opportunity.requiredSkill !== PENDING_OPTION ? [opportunity.requiredSkill] : [])
+  
+  // Check if only PENDING_OPTION is selected
+  const hasOnlyPending = Array.isArray(opportunity.requiredSkill)
+    ? opportunity.requiredSkill.length === 1 && opportunity.requiredSkill[0] === PENDING_OPTION
+    : opportunity.requiredSkill === PENDING_OPTION
 
   // Calculate match score for each member based on how many skills match
   interface MemberWithScore extends TeamMember {
@@ -67,8 +74,9 @@ export default function TeamRecommendationModal({
   }
 
   const membersWithScores = teamMembers.map((member) => {
-    if (requiredSkills.length === 0) {
-      return { ...member, matchScore: 0, matchingSkills: [] } as MemberWithScore
+    // If only PENDING_OPTION is selected, show all members with equal score
+    if (hasOnlyPending || requiredSkills.length === 0) {
+      return { ...member, matchScore: 0.5, matchingSkills: [] } as MemberWithScore // 0.5 = neutral score
     }
     
     const matchingSkills = member.skills.filter(skill => 
@@ -80,18 +88,21 @@ export default function TeamRecommendationModal({
   })
 
   // Filter and sort members by match score
-  const matchingMembers: MemberWithScore[] = membersWithScores
-    .filter(({ matchScore }) => matchScore > 0)
-    .sort((a, b) => b.matchScore - a.matchScore) // Sort by highest match score first
+  // If only PENDING_OPTION, show all members equally
+  const matchingMembers: MemberWithScore[] = hasOnlyPending || requiredSkills.length === 0
+    ? membersWithScores.sort((a, b) => a.member.name.localeCompare(b.member.name)) // Sort alphabetically
+    : membersWithScores
+        .filter(({ matchScore }) => matchScore > 0)
+        .sort((a, b) => b.matchScore - a.matchScore) // Sort by highest match score first
   
-  // Only show alternative members if no skills were extracted by AI
+  // Only show alternative members if no skills were extracted by AI or only PENDING_OPTION
   // If skills were extracted, only show matching members
-  const shouldShowAlternatives = requiredSkills.length === 0 || requiredSkills.every(skill => !skill || skill === '')
+  const shouldShowAlternatives = hasOnlyPending || requiredSkills.length === 0 || requiredSkills.every(skill => !skill || skill === '')
   const allOtherMembers = shouldShowAlternatives 
-    ? membersWithScores
+    ? [] // Don't show alternatives if PENDING_OPTION is selected (all members are shown as matches)
+    : membersWithScores
         .filter(({ matchScore }) => matchScore === 0)
         .map(({ member }) => member)
-    : []
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -109,16 +120,25 @@ export default function TeamRecommendationModal({
             <div className="space-y-3">
               <p className="text-sm text-slate-600 font-medium">Required Skill{requiredSkills.length > 1 ? 's' : ''}</p>
               <div className="flex items-center gap-2 flex-wrap">
-                {requiredSkills.length > 0 ? (
+                {hasOnlyPending ? (
                   <>
-                {requiredSkills.map((skill, idx) => (
-                  <span key={idx} className="text-sm px-4 py-2 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60">
-                    {skill}
-                  </span>
-                ))}
-                <span className="text-sm text-slate-600">
-                  {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""} with {requiredSkills.length > 1 ? 'these skills' : 'this skill'}
-                </span>
+                    <span className="text-sm px-4 py-2 bg-slate-200/80 rounded-full text-slate-600 font-medium shadow-md border border-slate-300/60">
+                      Pending / No specific skill
+                    </span>
+                    <span className="text-sm text-slate-600">
+                      Showing all {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""}
+                    </span>
+                  </>
+                ) : requiredSkills.length > 0 ? (
+                  <>
+                    {requiredSkills.map((skill, idx) => (
+                      <span key={idx} className="text-sm px-4 py-2 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60">
+                        {skill}
+                      </span>
+                    ))}
+                    <span className="text-sm text-slate-600">
+                      {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""} with {requiredSkills.length > 1 ? 'these skills' : 'this skill'}
+                    </span>
                   </>
                 ) : (
                   <span className="text-sm text-slate-600 italic">No specific skills required</span>
@@ -143,7 +163,7 @@ export default function TeamRecommendationModal({
           ) : (
             <>
               {/* Recommended Team Members (Matching Skills) */}
-              {requiredSkills.length > 0 && matchingMembers.length === 0 ? (
+              {!hasOnlyPending && requiredSkills.length > 0 && matchingMembers.length === 0 ? (
                 <div className="space-y-4">
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 space-y-2 backdrop-blur-sm">
                     <div className="flex items-center gap-2">
@@ -199,11 +219,11 @@ export default function TeamRecommendationModal({
                     ))}
                   </div>
                 </div>
-              ) : matchingMembers.length > 0 && (
+              ) : (hasOnlyPending || matchingMembers.length > 0) && (
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
                     <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    RECOMMENDED MATCHES
+                    {hasOnlyPending ? "ALL TEAM MEMBERS" : "RECOMMENDED MATCHES"}
                   </h3>
                   <div className="space-y-3">
                     {matchingMembers.map((member) => (
@@ -214,9 +234,11 @@ export default function TeamRecommendationModal({
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-bold text-slate-800 text-base">{member.name}</p>
-                            <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-700 rounded-full font-semibold">
-                              {Math.round(member.matchScore * 100)}% Match
-                            </span>
+                            {!hasOnlyPending && member.matchScore > 0 && (
+                              <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-700 rounded-full font-semibold">
+                                {Math.round(member.matchScore * 100)}% Match
+                              </span>
+                            )}
                           </div>
                           {member.email && (
                             <p className="text-xs text-slate-600 mt-1">{member.email}</p>

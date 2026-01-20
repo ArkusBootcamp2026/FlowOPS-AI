@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TagInput } from "@/components/ui/tag-input"
+import { MultiSelect } from "@/components/ui/multi-select"
 import { getSkills, type Skill } from "@/services/skills"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 import { updateOpportunityDetails, updateOpportunityStatus, deleteOpportunity, type Opportunity } from "@/services/opportunities"
@@ -222,24 +222,25 @@ export default function OpportunityDetailsModal({
         updates.urgency = editedValues.urgency
       }
 
-      // Update required_skill_id - IMPORTANT: use UUID, not name
+      // Handle skill update - use first real skill (not Pending) for backward compatibility
+      const PENDING_OPTION = "Pending / No specific skill"
+      const realSkills = editedValues.selectedSkills.filter(s => s !== PENDING_OPTION)
+      const firstSkill = realSkills.length > 0 
+        ? skills.find(s => s.name === realSkills[0])
+        : null
+      const newSkillId = firstSkill ? firstSkill.id : null
+      
+      // Compare with current skill
       const currentSkills = Array.isArray(opportunity.requiredSkill) 
-        ? opportunity.requiredSkill 
-        : [opportunity.requiredSkill]
+        ? opportunity.requiredSkill.filter(s => s !== PENDING_OPTION)
+        : (opportunity.requiredSkill && opportunity.requiredSkill !== PENDING_OPTION ? [opportunity.requiredSkill] : [])
+      const currentFirstSkill = currentSkills.length > 0 
+        ? skills.find(s => s.name === currentSkills[0])
+        : null
+      const currentSkillId = currentFirstSkill ? currentFirstSkill.id : null
       
-      const currentSkillName = currentSkills[0] || ""
-      const selectedSkill = skills.find(s => s.id === editedValues.skillId)
-      
-      if (editedValues.skillId === "none") {
-        // If "none" was selected, set as null
-        if (currentSkills.length > 0) {
-          updates.required_skill_id = null
-        }
-      } else if (selectedSkill) {
-        // Use the UUID of the selected skill, not the name
-        if (selectedSkill.name !== currentSkillName) {
-          updates.required_skill_id = selectedSkill.id // UUID, not name
-        }
+      if (newSkillId !== currentSkillId) {
+        updates.required_skill_id = newSkillId
       }
       
       // Update assigned_user_id
@@ -262,8 +263,16 @@ export default function OpportunityDetailsModal({
         const updatedOpportunity = await updateOpportunityDetails(opportunity.id, updates)
         
         if (updatedOpportunity && onSaveEdits) {
+          // Preserve selectedSkills including Pending in the returned opportunity
+          const PENDING_OPTION = "Pending / No specific skill"
+          const opportunityWithFullSkills = {
+            ...updatedOpportunity,
+            requiredSkill: editedValues.selectedSkills.length > 0 
+              ? (editedValues.selectedSkills.length === 1 ? editedValues.selectedSkills[0] : editedValues.selectedSkills)
+              : []
+          }
           // Pass the complete updated opportunity so Kanban can update
-          onSaveEdits(updatedOpportunity)
+          onSaveEdits(opportunityWithFullSkills)
           toast.success('Opportunity updated successfully')
           setIsEditing(false)
         } else {
@@ -418,15 +427,18 @@ export default function OpportunityDetailsModal({
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <TagInput
-                        tags={editedValues.selectedSkills}
-                        onTagsChange={(newSkills) => {
+                      <MultiSelect
+                        options={skills}
+                        selected={editedValues.selectedSkills}
+                        onSelectionChange={(newSkills) => {
                           setEditedValues((prev) => {
                             // Update selected skills
                             const updated = { ...prev, selectedSkills: newSkills }
-                            // Update skillId to first skill for backward compatibility
-                            if (newSkills.length > 0) {
-                              const firstSkill = skills.find(s => s.name === newSkills[0])
+                            // Update skillId to first skill for backward compatibility (skip PENDING_OPTION)
+                            const PENDING_OPTION = "Pending / No specific skill"
+                            const realSkills = newSkills.filter(s => s !== PENDING_OPTION)
+                            if (realSkills.length > 0) {
+                              const firstSkill = skills.find(s => s.name === realSkills[0])
                               updated.skillId = firstSkill ? firstSkill.id : "none"
                             } else {
                               updated.skillId = "none"
@@ -438,9 +450,9 @@ export default function OpportunityDetailsModal({
                             setSkillError("")
                           }
                         }}
-                        availableSkills={skills}
-                        placeholder="Add skills..."
+                        placeholder="Select skills..."
                         disabled={isSaving}
+                        showPendingOption={true}
                         className={skillError ? "ring-2 ring-destructive" : ""}
                       />
                       {skillError && (
@@ -642,7 +654,7 @@ export default function OpportunityDetailsModal({
                   </Button>
                   <Button 
                     onClick={handleSaveEdits}
-                    disabled={isSaving || editedValues.summary.trim() === "" || editedValues.skillId === "none"}
+                    disabled={isSaving || editedValues.summary.trim() === "" || editedValues.selectedSkills.length === 0}
                   >
                     {isSaving ? (
                       <>

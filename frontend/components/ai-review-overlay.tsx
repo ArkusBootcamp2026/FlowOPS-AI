@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TagInput } from "@/components/ui/tag-input"
+import { MultiSelect } from "@/components/ui/multi-select"
 import { Sparkles, Loader2, ArrowLeft, Edit2 } from "lucide-react"
 import { getSkills, type Skill } from "@/services/skills"
 import { findOrCreateClient } from "@/services/clients"
@@ -167,7 +167,7 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
 
   const handleConfirm = async () => {
     if (!summary || selectedSkills.length === 0 || !urgency) {
-      toast.error('Please fill in all fields, including at least one skill')
+      toast.error('Please fill in all fields, including at least one skill or "Pending / No specific skill"')
       return
     }
 
@@ -178,8 +178,11 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
       const client = await findOrCreateClient(clientName, company)
 
       // 2. Find the first skill ID from selected skills for backward compatibility
-      const firstSkillName = selectedSkills[0]
-      const firstSkill = skills.find(s => s.name.toLowerCase() === firstSkillName.toLowerCase())
+      // Filter out "Pending / No specific skill" option
+      const PENDING_OPTION = "Pending / No specific skill"
+      const realSkills = selectedSkills.filter(s => s !== PENDING_OPTION)
+      const firstSkillName = realSkills.length > 0 ? realSkills[0] : null
+      const firstSkill = firstSkillName ? skills.find(s => s.name.toLowerCase() === firstSkillName.toLowerCase()) : null
       const skillIdToSave = firstSkill ? firstSkill.id : null
 
       // 3. Create the opportunity in Supabase
@@ -191,10 +194,17 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
         skillIdToSave
       )
 
-      // 3. Dispatch event to update the Kanban
+      // 4. Override requiredSkill to include Pending if selected
+      // The backend only saves one skillId, but we need to preserve the full array including Pending
+      const opportunityWithFullSkills = {
+        ...newOpportunity,
+        requiredSkill: selectedSkills.length > 0 ? (selectedSkills.length === 1 ? selectedSkills[0] : selectedSkills) : []
+      }
+
+      // 5. Dispatch event to update the Kanban
       window.dispatchEvent(
         new CustomEvent("addOpportunity", {
-          detail: newOpportunity,
+          detail: opportunityWithFullSkills,
         }),
       )
 
@@ -273,12 +283,13 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
                     </Label>
                     {isEditing ? (
                       <div className="mt-1">
-                        <TagInput
-                          tags={selectedSkills}
-                          onTagsChange={setSelectedSkills}
-                          availableSkills={skills}
-                          placeholder="Add skills..."
+                        <MultiSelect
+                          options={skills}
+                          selected={selectedSkills}
+                          onSelectionChange={setSelectedSkills}
+                          placeholder="Select skills..."
                           disabled={isSaving}
+                          showPendingOption={true}
                         />
                         {aiSuggestedSkills.length > 0 && selectedSkills.length === 0 && (
                           <p className="text-xs text-muted-foreground mt-1">
@@ -290,14 +301,21 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
                       <div className="mt-1">
                         {selectedSkills.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
-                            {selectedSkills.map((skill, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs px-2 py-1 bg-background border border-border rounded-full text-foreground"
-                              >
-                                {skill}
-                              </span>
-                            ))}
+                            {selectedSkills.map((skill, idx) => {
+                              const isPending = skill === "Pending / No specific skill"
+                              return (
+                                <span
+                                  key={idx}
+                                  className={`text-xs px-2 py-1 border rounded-full ${
+                                    isPending
+                                      ? "bg-slate-200/80 text-slate-600 border-slate-300/60"
+                                      : "bg-background text-foreground border-border"
+                                  }`}
+                                >
+                                  {skill}
+                                </span>
+                              )
+                            })}
                           </div>
                         ) : (
                           <p className="text-sm font-medium text-foreground">No skills</p>
