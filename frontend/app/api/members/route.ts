@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createMember, updateMember } from '../../../../backend/controllers/memberController'
+import { createMember, updateMember } from '@/src/backend/controllers/memberController'
 
 export async function POST(request: NextRequest) {
   try {

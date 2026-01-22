@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { processOpportunityEmail } from '../../../../../backend/controllers/aiController'
+import { processOpportunityEmail } from '@/src/backend/controllers/aiController'
 
 export async function POST(request: NextRequest) {
   try {
